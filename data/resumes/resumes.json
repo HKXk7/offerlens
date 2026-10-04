@@ -1,0 +1,72 @@
+[
+  {
+    "id": "resume-rich",
+    "anon_id": "R-01",
+    "headline": "软件工程 · 大三 · 两段前端实习 / 求职方向：AI 平台前端",
+    "experience_level": "rich",
+    "major_related": true,
+    "skills": [
+      "TypeScript", "React", "Node.js", "ECharts", "Web Worker", "WebSocket",
+      "Vite", "Git", "SQL", "Playwright"
+    ],
+    "internships": ["某电商平台 · 前端开发实习生", "某数据服务公司 · 前端开发实习生"],
+    "projects": ["组件库", "可视化埋点平台"],
+    "segments": [
+      { "seg_id": "S01", "text": "教育背景：XX 大学 · 软件工程 · 本科 · 2023.09 - 2027.06 · 加权平均分 85.2 / 100" },
+      { "seg_id": "S02", "text": "专业技能：熟悉 TypeScript 与 React，了解 React 渲染机制与性能优化；熟练使用 Node.js 编写 BFF 层；熟悉 ECharts 图表开发；了解 Web Worker 与 WebSocket；了解 SQL 与数据库基础；使用过 Playwright 编写端到端测试。" },
+      { "seg_id": "S03", "text": "实习经历一 · 某电商平台 前端开发实习生（2025.07 - 2025.09）：参与商家后台的数据看板开发，用 ECharts 完成 12 个图表的配置与主题适配；负责订单列表的性能优化，把万级行表格的滚动从卡顿改到稳定 60fps；梳理并抽取了 8 个通用组件进入公司组件库。" },
+      { "seg_id": "S04", "text": "实习经历二 · 某数据服务公司 前端开发实习生（2025.01 - 2025.03）：参与数据任务的运行监控页面开发，用 WebSocket 接收任务状态推送并做断线重连；把一个耗时的数据聚合计算从主线程挪到 Web Worker，主线程长任务从 1.2s 降到 80ms；配合后端完成数据集管理模块的接口联调。" },
+      { "seg_id": "S05", "text": "项目经历 · 可视化埋点平台（个人项目，2025.10 - 至今）：独立完成前端全流程，技术栈 React + TypeScript + Vite + Node.js；实现了事件配置、实时数据流查看、埋点数据看板三个模块；用虚拟滚动支撑单页 5 万条事件记录；为后端聚合接口写了 3 条 Playwright 端到端测试。" },
+      { "seg_id": "S06", "text": "竞赛与荣誉：中国大学生服务外包创新创业大赛 · 区域三等奖；校级程序设计竞赛三等奖；英语 CET-4。" }
+    ]
+  },
+  {
+    "id": "resume-thin",
+    "anon_id": "R-02",
+    "headline": "计算机科学与技术 · 大三 · 无实习 / 求职方向：前端开发",
+    "experience_level": "thin",
+    "major_related": true,
+    "skills": ["JavaScript", "TypeScript", "React", "CSS", "Git", "Vite"],
+    "internships": [],
+    "projects": ["校园二手交易平台", "在线笔记应用"],
+    "segments": [
+      { "seg_id": "S01", "text": "教育背景：XX 大学 · 计算机科学与技术 · 本科 · 2023.09 - 2027.06 · 加权平均分 78.4 / 100" },
+      { "seg_id": "S02", "text": "专业技能：熟悉 JavaScript 与 TypeScript 基础语法；了解 React 函数组件与 Hooks 的用法；了解 CSS 布局与响应式适配；使用过 Vite 与 Git。" },
+      { "seg_id": "S03", "text": "项目经历 · 校园二手交易平台（课程项目，2025.03 - 2025.06）：负责商品列表页与详情页的开发，使用 React 完成页面组件拆分；实现了图片懒加载与分页加载，列表从一次性加载 200 条改为滚动加载；参与接口联调与样式还原。" },
+      { "seg_id": "S04", "text": "项目经历 · 在线笔记应用（个人练习，2025.08）：跟随教程完成一个支持 Markdown 编辑的笔记应用；实现了笔记的增删改查与本地存储；未涉及服务端开发。" },
+      { "seg_id": "S05", "text": "其他：英语 CET-4；无竞赛经历；希望在实习中补齐工程化与性能优化方面的经验。" }
+    ]
+  },
+  {
+    "id": "resume-career",
+    "anon_id": "R-03",
+    "headline": "材料科学与工程 · 大三 · 自学转前端 / 求职方向：前端开发",
+    "experience_level": "career_change",
+    "major_related": false,
+    "skills": ["JavaScript", "HTML", "CSS", "Vue", "Element Plus", "Git"],
+    "internships": [],
+    "projects": ["实验室数据录入系统", "个人博客"],
+    "segments": [
+      { "seg_id": "S01", "text": "教育背景：XX 大学 · 材料科学与工程 · 本科 · 2023.09 - 2027.06 · 加权平均分 81.0 / 100（非计算机相关专业）" },
+      { "seg_id": "S02", "text": "专业技能：自学前端一年半；熟悉 JavaScript 基础与 DOM 操作；熟练使用 Vue 3 与 Element Plus 组件库；掌握 HTML 与 CSS 布局；了解 Git 基本操作；未接触过 TypeScript 与 React。" },
+      { "seg_id": "S03", "text": "项目经历 · 实验室数据录入系统（为所在实验室开发，2025.04 - 2025.06）：用 Vue 3 + Element Plus 实现实验数据的表单录入、列表查询与 Excel 导出；在实验室 5 名同学中实际使用，替换了原来的手工 Excel 记录流程；负责全部前端开发与简单的 Node 接口。" },
+      { "seg_id": "S04", "text": "个人博客（2025.09）：用 Vue 搭建个人博客，接入了 Markdown 渲染与文章列表；部署在静态托管平台上；主要是自学练习，未做性能与工程化建设。" },
+      { "seg_id": "S05", "text": "其他：通过 B 站与官方文档自学前端，未参加过系统性培训；无实习经历；英语 CET-4。" }
+    ]
+  },
+  {
+    "id": "resume-incomplete",
+    "anon_id": "R-04",
+    "headline": "网络工程 · 大三 · 经历极少 / 求职方向：前端开发",
+    "experience_level": "incomplete",
+    "major_related": true,
+    "skills": ["HTML", "CSS", "JavaScript"],
+    "internships": [],
+    "projects": [],
+    "segments": [
+      { "seg_id": "S01", "text": "教育背景：XX 大学 · 网络工程 · 本科 · 2023.09 - 2027.06 · 加权平均分 72.6 / 100" },
+      { "seg_id": "S02", "text": "专业技能：学习了 HTML、CSS 与 JavaScript 基础；了解网页的基本结构与样式；暂无其他技术栈经验。" },
+      { "seg_id": "S03", "text": "自我评价：学习态度端正，愿意从基础做起，有较强的学习意愿与团队协作意识。" }
+    ]
+  }
+]

@@ -1,0 +1,15 @@
+# 换行符统一策略
+# 仓库内一律按 LF 存储，检出到工作区时由 Git 按平台自动转换。
+# 不加这个文件的话，Windows 上提交过、Linux/macOS 上改一个字符再提交，
+# diff 会显示整个文件都变了 —— 很难看出真实改动。
+* text=auto
+
+# 二进制文件：不做换行符转换，也不当作文本 diff
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
