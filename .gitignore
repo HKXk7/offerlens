@@ -1,0 +1,28 @@
+# 凭证 —— 绝对不要提交
+.env
+.env.local
+
+# 真实运行的原始产物（体积大、含简历与建议原文）
+data/real/
+data/offerlens.db
+data/offerlens.db-wal
+data/offerlens.db-shm
+
+# 临时探针与归档：探模型参数（关思考、输出上限）用的一次性脚本，
+# 以及配置不一致、不能与正式数据集混用的历史跑批
+data/tmp/
+data/archive-smoke/
+
+# 注意：reports/real-*.md **不忽略**。
+# 报告里只有聚合指标与显著性表格，没有建议原文，可以安全提交 ——
+# 而它恰恰是这个项目要给人看的东西（简历项目没报告等于没做）。
+
+# 依赖与构建产物
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store

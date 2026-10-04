@@ -1,0 +1,28 @@
+{
+  "name": "offerlens",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OfferLens · 求职 Agent 与它的评测回归平台（4 周版工程骨架）",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "db:init": "tsx scripts/init-db.ts",
+    "cases:build": "tsx scripts/build-cases.ts",
+    "demo": "tsx scripts/demo.ts",
+    "eval:dry": "tsx scripts/run-eval.ts --dry-run",
+    "eval": "tsx scripts/run-eval.ts",
+    "eval:smoke": "tsx scripts/run-eval.ts --limit 4 --runs 1",
+    "eval:report": "tsx scripts/run-eval.ts --report-only",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

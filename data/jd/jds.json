@@ -1,0 +1,134 @@
+[
+  {
+    "id": "jd-app-01",
+    "title": "AI 应用前端实习生（大模型应用团队）",
+    "company_type": "AI 创业公司",
+    "category": "app",
+    "level": "intern",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责大模型对话类产品的 Web 前端开发，聚焦对话流的交互体验；\n2. 与算法同学协作，完成流式输出的渲染与打断、重试等交互；\n3. 参与组件库的建设与维护。\n【任职要求】\n1. 本科及以上在读，计算机相关专业优先；\n2. 熟悉 JavaScript 与 TypeScript，有 React 项目经验；\n3. 了解 SSE 或 WebSocket 等流式通信方式；\n4. 每周到岗 4 天以上，实习 3 个月起。",
+    "hard_req": ["本科及以上", "JavaScript", "TypeScript", "React", "SSE"],
+    "soft_req": ["组件库", "对话产品经验", "实习 3 个月起"]
+  },
+  {
+    "id": "jd-app-02",
+    "title": "AI 应用前端工程师（智能助手方向）",
+    "company_type": "大厂业务线",
+    "category": "app",
+    "level": "junior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责智能助手 Web 端的功能迭代与体验优化；\n2. 承接模型能力的接入与协议适配（OpenAI 兼容接口为主）；\n3. 维护前端工程化体系，推进构建与发布效率。\n【任职要求】\n1. 本科及以上学历，1-3 年前端开发经验；\n2. 熟练掌握 React 与 TypeScript，理解 React 渲染机制；\n3. 具备 Node.js 服务端开发能力（BFF 层）；\n4. 熟悉 WebSocket 长连接，能处理断线重连与心跳；\n5. 有组件库或设计系统维护经验者优先。",
+    "hard_req": ["本科及以上", "React", "TypeScript", "Node.js", "WebSocket"],
+    "soft_req": ["BFF", "组件库", "设计系统"]
+  },
+  {
+    "id": "jd-app-03",
+    "title": "高级前端工程师-智能体产品",
+    "company_type": "AI 创业公司",
+    "category": "app",
+    "level": "senior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 主导智能体（Agent）产品的前端架构设计；\n2. 负责前端性能优化与工程化建设，制定技术规范；\n3. 带领 2-3 人小组完成版本交付。\n【任职要求】\n1. 本科及以上学历，5 年以上前端开发经验；\n2. 精通 React 与 TypeScript，有复杂前端架构经验；\n3. 有扎实的性能优化实践（首屏、长列表、渲染帧率）；\n4. 具备工程化建设能力（构建、CI、技术规范）。",
+    "hard_req": ["本科及以上", "React", "TypeScript", "5 年以上前端经验", "性能优化", "工程化"],
+    "soft_req": ["架构设计", "团队协作", "Agent 产品经验"]
+  },
+  {
+    "id": "jd-platform-01",
+    "title": "前端开发工程师-大模型评测平台",
+    "company_type": "大厂自研平台",
+    "category": "platform",
+    "level": "junior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责大模型评测平台的前端开发，支撑人工评估、自动评估等能力；\n2. 承接题目管理生产、评估结论分析等模块的交互与可视化；\n3. 与算法工程师协作，把评测指标口径落到界面上。\n【任职要求】\n1. 本科及以上学历，1-3 年前端开发经验；\n2. 熟练掌握 React 与 TypeScript；\n3. 有可视化开发经验（图表、对比矩阵、热力图等）；\n4. 具备大规模表格性能优化能力（虚拟滚动、分页、聚合）；\n5. 具备基础统计知识（显著性、置信区间）者优先。",
+    "hard_req": ["本科及以上", "React", "TypeScript", "可视化", "表格性能优化", "统计基础"],
+    "soft_req": ["评估平台经验", "算法协作", "指标口径"]
+  },
+  {
+    "id": "jd-platform-02",
+    "title": "AI 平台前端实习生（算法工程平台）",
+    "company_type": "大厂自研平台",
+    "category": "platform",
+    "level": "intern",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 参与算法工程平台的前端开发，服务对象是算法工程师；\n2. 完成任务队列、运行监控等模块的界面开发；\n3. 参与前端性能优化，把长任务的计算挪到 Worker。\n【任职要求】\n1. 本科及以上，计算机相关专业优先；\n2. 熟悉 React 与 TypeScript；\n3. 了解 Web Worker，有主线程卡顿优化经验者优先；\n4. 了解 WebSocket 实时推送；\n5. 每周到岗 4 天以上。",
+    "hard_req": ["本科及以上", "计算机相关专业", "React", "TypeScript", "Web Worker", "WebSocket"],
+    "soft_req": ["任务队列", "性能优化", "算法工程"]
+  },
+  {
+    "id": "jd-platform-03",
+    "title": "资深前端工程师-机器学习平台",
+    "company_type": "大厂自研平台",
+    "category": "platform",
+    "level": "senior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责机器学习平台的训练任务管理与指标对比可视化；\n2. 主导大规模数据渲染的性能方案；\n3. 与平台后端、算法团队共同定义产品形态。\n【任职要求】\n1. 本科及以上，计算机相关专业，5 年以上前端经验；\n2. 精通 React 与 TypeScript；\n3. 有大规规模数据渲染经验（万级行表格、多 Metric 对比图）；\n4. 具备 Node.js 中台开发经验。",
+    "hard_req": ["本科及以上", "计算机相关专业", "React", "TypeScript", "5 年以上前端经验", "大规模数据渲染", "Node.js"],
+    "soft_req": ["多 Metric 对比", "资源调度理解", "跨团队协作"]
+  },
+  {
+    "id": "jd-data-01",
+    "title": "数据平台前端工程师",
+    "company_type": "大厂数据平台部",
+    "category": "data",
+    "level": "junior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责数据平台的看板与分析类前端开发；\n2. 承接数据集管理、任务调度等模块的界面；\n3. 优化大数据量下的图表渲染与列表滚动体验。\n【任职要求】\n1. 本科及以上学历，1-3 年前端经验；\n2. 熟练掌握 React 与 TypeScript；\n3. 熟练使用 ECharts 等可视化库；\n4. 有虚拟滚动开发经验；\n5. 具备 SQL 基础，能看懂查询逻辑者优先。",
+    "hard_req": ["本科及以上", "React", "TypeScript", "ECharts", "虚拟滚动", "SQL 基础"],
+    "soft_req": ["看板设计", "数据集管理", "调度系统"]
+  },
+  {
+    "id": "jd-data-02",
+    "title": "数据可视化前端实习生",
+    "company_type": "数据服务公司",
+    "category": "data",
+    "level": "intern",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 参与数据可视化项目的前端开发；\n2. 完成图表配置、主题适配与交互开发；\n3. 配合设计师还原可视化大屏。\n【任职要求】\n1. 本科及以上在读；\n2. 熟悉 JavaScript 与 TypeScript；\n3. 使用过 ECharts 或其他图表库；\n4. 有良好的审美与还原能力。",
+    "hard_req": ["本科及以上", "JavaScript", "TypeScript", "ECharts"],
+    "soft_req": ["可视化大屏", "主题适配", "设计还原"]
+  },
+  {
+    "id": "jd-data-03",
+    "title": "数据标注平台前端（高级）",
+    "company_type": "AI 数据服务",
+    "category": "data",
+    "level": "senior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责标注平台的画布与交互系统建设；\n2. 优化高频标注操作的键盘交互与响应速度；\n3. 主导画布渲染性能方案。\n【任职要求】\n1. 本科及以上学历，5 年以上前端经验；\n2. 精通 React 与 TypeScript；\n3. 有 Canvas 或 SVG 图形编辑器开发经验；\n4. 熟悉高频键盘交互设计（快捷键体系、防误触）；\n5. 有标注或图形类产品经验者优先。",
+    "hard_req": ["本科及以上", "React", "TypeScript", "5 年以上前端经验", "Canvas", "键盘交互"],
+    "soft_req": ["图形编辑器", "标注产品", "质检流程"]
+  },
+  {
+    "id": "jd-biz-01",
+    "title": "中后台前端开发工程师（B 端）",
+    "company_type": "政企软件公司",
+    "category": "business",
+    "level": "junior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责政企中后台系统的前端开发；\n2. 参与表单引擎的建设与业务表单配置；\n3. 配合后端完成接口联调与权限体系对接。\n【任职要求】\n1. 本科及以上学历；\n2. 熟悉 Vue 与 JavaScript；\n3. 有表单引擎或低代码平台使用经验；\n4. 有良好的沟通能力。",
+    "hard_req": ["本科及以上", "Vue", "JavaScript", "表单引擎"],
+    "soft_req": ["低代码", "权限体系", "政企项目"]
+  },
+  {
+    "id": "jd-biz-02",
+    "title": "前端开发实习生（业务中台）",
+    "company_type": "传统企业信息化部",
+    "category": "business",
+    "level": "intern",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 参与业务中台页面的开发与维护；\n2. 完成页面的样式还原与兼容性适配；\n3. 协助排查线上问题。\n【任职要求】\n1. 本科及以上在读；\n2. 掌握 JavaScript、Vue 基础；\n3. 熟悉 CSS 布局与响应式适配；\n4. 有责任心，能接受一定强度的迭代。",
+    "hard_req": ["本科及以上", "JavaScript", "Vue", "CSS"],
+    "soft_req": ["响应式适配", "兼容性处理", "问题排查"]
+  },
+  {
+    "id": "jd-biz-03",
+    "title": "前端工程师（政企数据平台）",
+    "company_type": "政企软件公司",
+    "category": "business",
+    "level": "junior",
+    "source": "synthetic",
+    "raw": "【岗位职责】\n1. 负责政企数据平台的页面开发；\n2. 完成统计图表的配置与数据对接；\n3. 参与项目的现场部署与交付支持。\n【任职要求】\n1. 本科及以上学历；\n2. 熟悉 Vue 与 TypeScript；\n3. 使用过 ECharts；\n4. 能接受短期出差。",
+    "hard_req": ["本科及以上", "Vue", "TypeScript", "ECharts"],
+    "soft_req": ["交付支持", "出差", "数据对接"]
+  }
+]
