@@ -17,15 +17,18 @@
     "eval:report": "tsx scripts/run-eval.ts --report-only",
     "seed:demo": "tsx scripts/seed-demo-runs.ts",
     "serve": "tsx src/server/server.ts",
+    "start": "tsx src/server/server.ts",
     "web:dev": "npm --prefix web run dev",
     "web:build": "npm --prefix web run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "tsx": "^4.23.15"
+  },
   "devDependencies": {
     "@types/node": "^26.6.4",
-    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   }

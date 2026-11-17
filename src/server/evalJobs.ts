@@ -62,6 +62,37 @@ export function jobHistory(): EvalJob[] {
   return history;
 }
 
+/* ---------- SSE 事件订阅 ----------
+ * 评测是长耗时任务，轮询有 1~3 秒延迟。这里加一层「发布 / 订阅」，
+ * server.ts 的 SSE 端点订阅后，每次 progress / log / done / failed 都会实时推给前端。
+ */
+export type EvalStreamEvent =
+  | { type: 'progress'; progress: EvalProgress }
+  | { type: 'log'; line: string }
+  | { type: 'done'; summary: EvalSummary }
+  | { type: 'failed'; error: string; errorCode: string };
+
+type EvalListener = (event: EvalStreamEvent) => void;
+const listeners = new Set<EvalListener>();
+
+/** 订阅评测事件，返回取消订阅函数。 */
+export function subscribeEval(listener: EvalListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function broadcast(event: EvalStreamEvent): void {
+  for (const l of listeners) {
+    try {
+      l(event);
+    } catch {
+      /* 单个订阅者的异常不能拖垮广播 */
+    }
+  }
+}
+
 export type StartResult =
   | { ok: true; job: EvalJob }
   | { ok: false; error: string; code: string };
@@ -136,19 +167,23 @@ export function startEval(opts: EvalOptions): StartResult {
     if (e.type === 'log') {
       job.logs.push(e.line);
       if (job.logs.length > MAX_LOGS) job.logs.splice(0, job.logs.length - MAX_LOGS);
+      broadcast({ type: 'log', line: e.line });
     } else if (e.type === 'progress') {
       job.progress = e.progress;
+      broadcast({ type: 'progress', progress: e.progress });
     } else if (e.type === 'done') {
       job.status = 'done';
       job.finishedAt = new Date().toISOString();
       job.summary = e.summary;
       invalidateCache();
+      broadcast({ type: 'done', summary: e.summary });
     }
   }).catch((err) => {
     job.status = 'failed';
     job.finishedAt = new Date().toISOString();
     job.error = err instanceof Error ? err.message : String(err);
     job.errorCode = err instanceof EvalError ? err.code : 'internal';
+    broadcast({ type: 'failed', error: job.error, errorCode: job.errorCode });
   });
 
   return { ok: true, job };

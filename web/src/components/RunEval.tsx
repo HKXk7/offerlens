@@ -1,11 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import type { EvalJob, ProfileMeta } from '../types';
+import type { EvalJob, EvalProgress, EvalSummary, ProfileMeta } from '../types';
 
 interface Props {
   profiles: ProfileMeta[];
   /** 评测完成（done）后回调，用于刷新榜单/对比等只读数据 */
   onEvalDone: () => void;
+}
+
+/** 给 EventSource 加自定义事件监听，自动 JSON 反序列化。 */
+function onEvent<T>(es: EventSource, event: string, fn: (data: T) => void): void {
+  es.addEventListener(event, ((e: Event) => {
+    const me = e as MessageEvent;
+    try {
+      fn(JSON.parse(me.data) as T);
+    } catch {
+      /* 忽略单条解析失败 */
+    }
+  }) as EventListener);
+}
+
+const STATUS_TEXT: Record<EvalJob['status'], string> = {
+  running: '进行中',
+  done: '完成',
+  failed: '失败',
+};
+
+function fmtTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString('zh-CN', { hour12: false });
+  } catch {
+    return iso;
+  }
 }
 
 export function RunEval({ profiles, onEvalDone }: Props) {
@@ -19,20 +45,42 @@ export function RunEval({ profiles, onEvalDone }: Props) {
   const [dryRun, setDryRun] = useState(false);
 
   const [job, setJob] = useState<EvalJob | null>(null);
+  const [history, setHistory] = useState<EvalJob[]>([]);
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  /** SSE 不可用时降级为轮询 */
+  const [usePoll, setUsePoll] = useState(false);
 
-  const timerRef = useRef<number | null>(null);
-  const logRef = useRef<HTMLPreElement | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
   const doneNotifiedRef = useRef(false);
+  const logRef = useRef<HTMLPreElement | null>(null);
+  const onEvalDoneRef = useRef(onEvalDone);
+  onEvalDoneRef.current = onEvalDone;
 
-  const stopTimer = () => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const stopPoll = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
-  };
+  }, []);
 
+  const notifyDone = useCallback(() => {
+    if (!doneNotifiedRef.current) {
+      doneNotifiedRef.current = true;
+      onEvalDoneRef.current();
+    }
+  }, []);
+
+  const refreshHistory = useCallback(() => {
+    api
+      .evalJobs()
+      .then((res) => setHistory(res.jobs))
+      .catch(() => {
+        /* ignore */
+      });
+  }, []);
+
+  /* 轮询兜底：SSE 连不上时使用 */
   const poll = useCallback(() => {
     api
       .evalStatus()
@@ -40,33 +88,67 @@ export function RunEval({ profiles, onEvalDone }: Props) {
         setJob(res.job);
         const j = res.job;
         if (j && j.status === 'running') {
-          timerRef.current = window.setTimeout(poll, 1500);
-        } else if (j && j.status === 'done' && !doneNotifiedRef.current) {
-          doneNotifiedRef.current = true;
-          onEvalDone();
+          pollTimerRef.current = window.setTimeout(poll, 1500);
+        } else if (j && j.status === 'done') {
+          notifyDone();
+          refreshHistory();
+        } else if (j && j.status === 'failed') {
+          refreshHistory();
         }
       })
       .catch(() => {
-        // 轮询失败不致命，稍后重试
-        timerRef.current = window.setTimeout(poll, 3000);
+        pollTimerRef.current = window.setTimeout(poll, 3000);
       });
-  }, [onEvalDone]);
+  }, [notifyDone, refreshHistory]);
 
-  // 挂载时恢复状态：页面刷新后若 job 还在跑，继续轮询
+  /* 挂载：建立 SSE 连接（实时进度），失败则降级轮询 */
   useEffect(() => {
-    api
-      .evalStatus()
-      .then((res) => {
-        setJob(res.job);
-        if (res.job && res.job.status === 'running') {
-          timerRef.current = window.setTimeout(poll, 1200);
+    const es = new EventSource('/api/eval/stream');
+
+    onEvent<{ job: EvalJob | null }>(es, 'snapshot', ({ job: snap }) => {
+      setJob(snap);
+      if (snap && snap.status === 'running') {
+        stopPoll(); // SSE 恢复后停掉兜底轮询
+      }
+    });
+    onEvent<{ progress: EvalProgress }>(es, 'progress', ({ progress }) => {
+      setJob((prev) => (prev ? { ...prev, status: 'running', progress } : prev));
+    });
+    onEvent<{ line: string }>(es, 'log', ({ line }) => {
+      setJob((prev) => (prev ? { ...prev, logs: [...prev.logs, line] } : prev));
+    });
+    onEvent<{ summary: EvalSummary }>(es, 'done', ({ summary }) => {
+      setJob((prev) =>
+        prev ? { ...prev, status: 'done', summary, finishedAt: new Date().toISOString() } : prev,
+      );
+      notifyDone();
+      refreshHistory();
+    });
+    onEvent<{ error: string; errorCode: string }>(es, 'failed', ({ error, errorCode }) => {
+      setJob((prev) =>
+        prev ? { ...prev, status: 'failed', error, errorCode, finishedAt: new Date().toISOString() } : prev,
+      );
+      refreshHistory();
+    });
+    es.onopen = () => setUsePoll(false);
+    es.onerror = () => {
+      setUsePoll(true);
+      // SSE 断开且当前有任务在跑时，用轮询兜底
+      setJob((prev) => {
+        if (prev && prev.status === 'running' && pollTimerRef.current === null) {
+          pollTimerRef.current = window.setTimeout(poll, 1500);
         }
-      })
-      .catch(() => {
-        /* ignore */
+        return prev;
       });
-    return stopTimer;
-  }, [poll]);
+    };
+
+    refreshHistory();
+
+    return () => {
+      es.close();
+      stopPoll();
+    };
+  }, [poll, stopPoll, notifyDone, refreshHistory]);
 
   // 日志自动滚到底
   useEffect(() => {
@@ -81,7 +163,7 @@ export function RunEval({ profiles, onEvalDone }: Props) {
     setStarting(true);
     setStartError(null);
     doneNotifiedRef.current = false;
-    stopTimer();
+    stopPoll();
 
     const req = {
       profiles: selected.length === profiles.length ? null : selected,
@@ -96,7 +178,11 @@ export function RunEval({ profiles, onEvalDone }: Props) {
       const res = await api.startEval(req);
       setJob(res.job);
       if (res.job.status === 'running') {
-        timerRef.current = window.setTimeout(poll, 1200);
+        refreshHistory();
+        // SSE 正常时事件会自动推送；若已降级为轮询，这里启动轮询
+        if (usePoll) {
+          pollTimerRef.current = window.setTimeout(poll, 1200);
+        }
       }
     } catch (e) {
       setStartError(e instanceof Error ? e.message : String(e));
@@ -222,7 +308,7 @@ export function RunEval({ profiles, onEvalDone }: Props) {
             <div className="eval-progress">
               <div className="eval-progress-head">
                 <span className="eval-status-dot" />
-                <span>评测进行中</span>
+                <span>评测进行中{usePoll ? '（轮询模式）' : ''}</span>
                 {progress && (
                   <span className="dim">
                     {progress.phase === 'generating' ? '生成阶段' : '裁判阶段'} · {progress.completed}/{progress.total} · 已花
@@ -290,6 +376,31 @@ export function RunEval({ profiles, onEvalDone }: Props) {
               </pre>
             </details>
           )}
+        </div>
+      )}
+
+      {/* 历史评测 */}
+      {history.length > 0 && (
+        <div className="section">
+          <div className="section-head">
+            <h3>历史评测</h3>
+            <p className="dim">最近 {history.length} 次（保存在内存中，服务重启后清空）</p>
+          </div>
+          <div className="history-list">
+            {history.map((h) => (
+              <div key={h.id} className={`history-item history-${h.status}`}>
+                <span className="history-status">{STATUS_TEXT[h.status]}</span>
+                <code className="history-id">{h.id}</code>
+                <span className="dim">{fmtTime(h.startedAt)}</span>
+                {h.summary && (
+                  <span className="history-stat">
+                    ¥{h.summary.spentCny.toFixed(2)} · {h.summary.totalRuns} 次 · {(h.summary.durationMs / 1000).toFixed(0)}s
+                  </span>
+                )}
+                {h.status === 'failed' && <span className="warn small">{(h.errorCode ?? '').toUpperCase()}</span>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

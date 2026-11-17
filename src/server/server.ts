@@ -25,7 +25,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyze, caseDetail, compare, listCases } from './analyze.js';
-import { currentJob, jobHistory, startEval } from './evalJobs.js';
+import { currentJob, jobHistory, startEval, subscribeEval } from './evalJobs.js';
 import type { EvalOptions } from '../eval/runner.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -130,6 +130,11 @@ const server = createServer(async (req, res) => {
   if (path.startsWith('/api/')) {
     /* POST /api/eval —— 启动评测（后台 job，唯一写接口） */
     if (path === '/api/eval' && req.method === 'POST') {
+      // 线上部署环境无 .env：评测为只读演示（真实跑批需要本地 API Key）。
+      if (!existsSync(resolve(ROOT, '.env'))) {
+        sendJson(res, 403, { error: '线上环境为只读演示，评测跑批请在本地运行（需要 API Key）。', code: 'readonly' });
+        return;
+      }
       let body: Record<string, unknown>;
       try {
         const raw = await readBody(req);
@@ -207,6 +212,29 @@ const server = createServer(async (req, res) => {
 
     if (path === '/api/health') {
       sendJson(res, 200, { ok: true, time: new Date().toISOString() });
+      return;
+    }
+
+    if (path === '/api/eval/stream') {
+      // SSE：实时推送评测进度 / 日志 / 终态。连接即推一个 snapshot 供页面刷新后恢复状态。
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+      const send = (event: string, data: unknown): void => {
+        if (res.writableEnded) return;
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+      send('snapshot', { job: currentJob() });
+      const unsub = subscribeEval((e) => {
+        if (e.type === 'log') send('log', { line: e.line });
+        else if (e.type === 'progress') send('progress', { progress: e.progress });
+        else if (e.type === 'done') send('done', { summary: e.summary });
+        else send('failed', { error: e.error, errorCode: e.errorCode });
+      });
+      req.on('close', () => unsub());
       return;
     }
 
@@ -307,8 +335,9 @@ function parsePort(argv: readonly string[]): number {
 }
 
 const port = parsePort(process.argv.slice(2));
-// 只监听本机回环地址：这是本地开发/演示工具，不该暴露到局域网。
-server.listen(port, '127.0.0.1', () => {
+// 本地默认只监听回环地址；部署环境（工具注入 PORT）需监听 0.0.0.0 供反向代理接入。
+const host = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
+server.listen(port, host, () => {
   console.log(`OfferLens Web API 已启动：http://localhost:${port}`);
   console.log(`  榜单      GET http://localhost:${port}/api/leaderboard`);
   console.log(`  对比矩阵  GET http://localhost:${port}/api/compare?base=sf-dsv4flash__p2-strict&cand=sf-qwen35-122b__p2-strict`);
