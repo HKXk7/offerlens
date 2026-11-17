@@ -15,6 +15,10 @@
     "eval": "tsx scripts/run-eval.ts",
     "eval:smoke": "tsx scripts/run-eval.ts --limit 4 --runs 1",
     "eval:report": "tsx scripts/run-eval.ts --report-only",
+    "seed:demo": "tsx scripts/seed-demo-runs.ts",
+    "serve": "tsx src/server/server.ts",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

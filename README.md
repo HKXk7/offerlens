@@ -27,6 +27,7 @@ LLM 输出没有标准答案，24 组样本里的「2.31 → 2.34」大概率只
 - [接入真实模型](#接入真实模型)
 - [指标体系：没有标准答案时怎么评测](#指标体系没有标准答案时怎么评测)
 - [它跑出来长什么样](#它跑出来长什么样)
+- [Web 控制台（可视化）](#web-控制台可视化)
 - [命令速查](#命令速查)
 - [项目结构](#项目结构)
 - [设计取舍](#设计取舍)
@@ -176,6 +177,43 @@ npm run eval:report  # ④ 只按已落盘数据重出报告，不重跑、不�
 
 ---
 
+## Web 控制台（可视化）
+
+除了 Markdown 报告，还带一个**可视化控制台**：把「榜单 / 对比矩阵 / 切片下钻」做成可交互界面。
+
+**架构**：`React 18 + Vite + TanStack Table 前端 → 零依赖 Node HTTP API（`node:http`）→ 复用同一套指标/统计纯函数 → SQLite/JSONL`。前后端分离，后端只读、只算（跑评测要花钱花时间，控制台要秒开）。
+
+### 启动（不花一分钱，零 API key）
+
+```bash
+npm run seed:demo    # ① 生成合成演示数据（data/real 为空时控制台会自动回退到它）
+npm run serve        # ② 启动 API + 静态托管，浏览器打开 http://localhost:8787
+```
+
+clone 下来没跑过真实评测时，控制台会自动展示**合成演示数据**（页面顶部有黄条标注），
+保证「clone → serve → 看到有数据的榜单」三步走通。接入真实模型后跑一次 `npm run eval`，
+控制台会自动切到真实结果。
+
+### 开发模式（前端热更新）
+
+```bash
+npm run serve        # 后端（8787）
+npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api → 8787）
+```
+
+### 三个视图
+
+| 视图 | 回答什么 | 关键点 |
+| --- | --- | --- |
+| **模型榜单** | 哪个模型 × prompt 最好 | 可排序；「达标率 / pass³ / 锚点覆盖」越高越好，带 ↓ 的越低越好 |
+| **对比矩阵** | 这次改动到底有没有变好 | 每个格子带「显著更好 / 显著更差 / 不显著」角标 + McNemar p 值或 95% CI |
+| **切片下钻** | 哪个子集偷偷退化了 | 能力类指标全保留，资源类（成本/延迟）折叠 |
+
+前端在 `web/`（独立 npm 工程），后端在 `src/server/`（复用 `src/metrics/` 与 `src/stats/` 的纯函数，
+**一行指标逻辑都没重复实现**）。
+
+---
+
 ## 命令速查
 
 ```bash
@@ -193,6 +231,12 @@ npm run eval:report    # 只重出报告
 # 质量
 npm test
 npm run typecheck
+
+# Web 控制台
+npm run seed:demo       # 生成合成演示数据（零 key）
+npm run serve           # 启动 API + 托管前端（http://localhost:8787）
+npm run web:dev         # 前端开发服务器（热更新）
+npm run web:build       # 构建前端到 web/dist
 ```
 
 ---
@@ -225,15 +269,22 @@ offerlens/
 │   │   └── compare.ts         # 对比矩阵 + 切片下钻 + Markdown 导出
 │   ├── schema/                # Case / Resume / Jd / Suggestion / StepSpan
 │   ├── db/init.ts             # node:sqlite（零原生依赖）+ WAL
+│   ├── server/                # Web 控制台后端
+│   │   ├── analyze.ts         # 聚合层：读 data/real，复用 metrics/stats 算榜单与对比
+│   │   └── server.ts          # 零依赖 node:http API + 静态托管 web/dist
 │   └── lib/                   # prng（可复现）/ jsonl / budget / env
 ├── data/
 │   ├── jd/jds.json            # 12 个 JD（4 类岗位 × 3 级）
 │   ├── resumes/resumes.json   # 4 份合成简历（丰富/单薄/转行/残缺）
-│   └── cases/                 # 24 组评测集（脚本生成）
+│   ├── cases/                 # 24 组评测集（脚本生成）
+│   └── demo/                  # 合成演示数据（无 key 时控制台的回退来源）
+├── web/                       # 前端：React 18 + Vite + TanStack Table（独立 npm 工程）
+│   └── src/                   #   App / Leaderboard / CompareView / SliceDrilldown
 ├── scripts/
 │   ├── init-db.ts
 │   ├── build-cases.ts         # 固定种子分层抽样 → 24 组
 │   ├── demo.ts                # 离线端到端
+│   ├── seed-demo-runs.ts      # 生成合成演示数据
 │   └── run-eval.ts            # 真实模型运行器（并发池 / 双续跑 / 报告 / 落库）
 ├── tests/                     # 112 个单测
 └── reports/                   # 生成的对比报告
