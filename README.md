@@ -1,16 +1,26 @@
 # OfferLens
 
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=white)
+
 **把「换了模型 / 改了 prompt 之后，效果到底有没有变好」变成可复现、可统计检验的结论。**
 
 一份简历 × 一份 JD 进去，Agent 产出改进建议；平台负责回答一个更难的问题：
 **这次改动是真的变好了，还是只是看起来变好了？**
 
-仓库里是两层东西：
+仓库里是三层东西：
 
 | 层 | 是什么 | 位置 |
 | --- | --- | --- |
 | **内层 · 被测对象** | 求职诊断 Agent：4 步，读 JD → 在简历里找证据 → 归一匹配 → 产出**带出处**的建议 | `src/agent/` |
 | **外层 · 评测平台** | 造评测集、算指标、判显著、落库、出报告 | `src/metrics/` `src/stats/` `scripts/` |
+| **展示层 · Web 控制台** | 榜单 / 对比矩阵 / 切片下钻 / case 详情 + trace 瀑布图，可交互可视化 | `web/` `src/server/` |
+
+技术栈一句话：**React 18 + Vite + TanStack Table 前端 → 零依赖 Node HTTP API → 复用同一套指标/统计纯函数 → SQLite/JSONL**，前后端分离。
 
 要解决的**不是**「怎么调大模型」——那是件容易的事。难的是**「怎么证明一次改动真的有用」**：
 LLM 输出没有标准答案，24 组样本里的「2.31 → 2.34」大概率只是噪声。
