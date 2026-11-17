@@ -90,6 +90,8 @@ export interface MetaResponse {
   dataset: DatasetMeta;
   generatedAt: string;
   dataSource: 'real' | 'demo';
+  /** 无 .env 时为只读演示（线上部署）：真实跑批被禁用，仅 dry-run 可跑 */
+  readonly?: boolean;
 }
 
 export interface LeaderboardResponse {

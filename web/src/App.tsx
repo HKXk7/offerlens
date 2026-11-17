@@ -130,7 +130,7 @@ export default function App() {
 
       {!error && meta && tab === 'eval' && (
         <main className="main">
-          <RunEval profiles={meta.profiles} onEvalDone={loadData} />
+          <RunEval profiles={meta.profiles} readonly={meta.readonly ?? false} onEvalDone={loadData} />
         </main>
       )}
 

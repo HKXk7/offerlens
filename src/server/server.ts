@@ -130,11 +130,6 @@ const server = createServer(async (req, res) => {
   if (path.startsWith('/api/')) {
     /* POST /api/eval —— 启动评测（后台 job，唯一写接口） */
     if (path === '/api/eval' && req.method === 'POST') {
-      // 线上部署环境无 .env：评测为只读演示（真实跑批需要本地 API Key）。
-      if (!existsSync(resolve(ROOT, '.env'))) {
-        sendJson(res, 403, { error: '线上环境为只读演示，评测跑批请在本地运行（需要 API Key）。', code: 'readonly' });
-        return;
-      }
       let body: Record<string, unknown>;
       try {
         const raw = await readBody(req);
@@ -194,6 +189,16 @@ const server = createServer(async (req, res) => {
           return;
         }
         opts.dryRun = body.dryRun;
+      }
+
+      // 线上部署环境无 .env：只允许 dry-run（仅预览 prompt，不发请求、不花钱、不需 key）。
+      // 真实跑批需要本地 API Key，线上拦截以免误触发付费调用。
+      if (!existsSync(resolve(ROOT, '.env')) && !opts.dryRun) {
+        sendJson(res, 403, {
+          error: '线上为只读演示，仅支持 prompt 预览（dry-run）；真实跑批请在本地运行（需要 API Key）。',
+          code: 'readonly',
+        });
+        return;
       }
 
       const result = startEval(opts);
@@ -257,6 +262,8 @@ const server = createServer(async (req, res) => {
         dataset: result.dataset,
         generatedAt: result.generatedAt,
         dataSource: result.dataSource,
+        // 无 .env 时为只读演示（线上部署）：真实跑批被禁用，仅 dry-run 可跑
+        readonly: !existsSync(resolve(ROOT, '.env')),
       });
       return;
     }

@@ -4,6 +4,8 @@ import type { EvalJob, EvalProgress, EvalSummary, ProfileMeta } from '../types';
 
 interface Props {
   profiles: ProfileMeta[];
+  /** 线上只读演示：真实跑批被禁用，仅 dry-run（预览 prompt）可跑 */
+  readonly?: boolean;
   /** 评测完成（done）后回调，用于刷新榜单/对比等只读数据 */
   onEvalDone: () => void;
 }
@@ -34,15 +36,15 @@ function fmtTime(iso: string): string {
   }
 }
 
-export function RunEval({ profiles, onEvalDone }: Props) {
+export function RunEval({ profiles, readonly = false, onEvalDone }: Props) {
   // 表单状态（数字字段用 string 承载，避免输入时被 Number 截断）
   const [selected, setSelected] = useState<string[]>(() => profiles.map((p) => p.run_id));
   const [limit, setLimit] = useState('');
   const [runs, setRuns] = useState('3');
-  const [judge, setJudge] = useState(true);
+  const [judge, setJudge] = useState(!readonly);
   const [budget, setBudget] = useState('100');
   const [concurrency, setConcurrency] = useState('4');
-  const [dryRun, setDryRun] = useState(false);
+  const [dryRun, setDryRun] = useState(readonly);
 
   const [job, setJob] = useState<EvalJob | null>(null);
   const [history, setHistory] = useState<EvalJob[]>([]);
@@ -201,9 +203,19 @@ export function RunEval({ profiles, onEvalDone }: Props) {
         <div className="section-head">
           <h2>运行评测</h2>
           <p className="dim">
-            在 Web 端触发一次真实评测跑批（后台执行、可刷新页面）。会真实调用模型、产生费用，请先确认参数与预算。
+            {readonly
+              ? '线上为只读演示，仅支持「预览 prompt」；完整评测跑批需在本地运行。'
+              : '在 Web 端触发一次真实评测跑批（后台执行、可刷新页面）。会真实调用模型、产生费用，请先确认参数与预算。'}
           </p>
         </div>
+
+        {readonly && (
+          <div className="warn-card">
+            当前为<strong>只读演示环境</strong>（无 API Key）：已自动切换到「预览 prompt」模式，
+            点下方按钮可查看模型实际会收到的 prompt，但<strong>不会发请求、不会花钱</strong>。
+            想跑完整评测，请 <code>git clone github.com/HKXk7/offerlens</code> 后在本地运行。
+          </div>
+        )}
 
         <div className="eval-form">
           <div className="eval-field">
@@ -278,18 +290,28 @@ export function RunEval({ profiles, onEvalDone }: Props) {
 
           <div className="eval-flags">
             <label className="check-item">
-              <input type="checkbox" checked={judge} onChange={(e) => setJudge(e.target.checked)} disabled={running} />
+              <input
+                type="checkbox"
+                checked={judge}
+                onChange={(e) => setJudge(e.target.checked)}
+                disabled={running || readonly}
+              />
               <span>跑 LLM 裁判（可执行性分，需换族模型）</span>
             </label>
             <label className="check-item">
-              <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} disabled={running} />
+              <input
+                type="checkbox"
+                checked={readonly || dryRun}
+                onChange={(e) => setDryRun(e.target.checked)}
+                disabled={running || readonly}
+              />
               <span className="dim">仅预览 prompt（dry-run，不发请求、不花钱）</span>
             </label>
           </div>
 
           <div className="eval-actions">
             <button className="btn-primary" onClick={start} disabled={starting || running}>
-              {starting ? '启动中…' : dryRun ? '预览 prompt' : '开始评测'}
+              {starting ? '启动中…' : readonly ? '预览 prompt（只读演示）' : dryRun ? '预览 prompt' : '开始评测'}
             </button>
             {running && <span className="dim">评测进行中，可切到其它 tab 或刷新页面，任务不中断。</span>}
             {!running && !dryRun && (

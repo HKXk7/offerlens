@@ -193,7 +193,16 @@ npm run eval:report  # ④ 只按已落盘数据重出报告，不重跑、不�
 做成可交互界面，并且能**直接在 Web 端触发一次评测跑批**（前后端完整闭环，不再是只读看板）。
 
 **架构**：`React 18 + Vite + TanStack Table 前端 → 零依赖 Node HTTP API（`node:http`）→ 复用同一套指标/统计纯函数 → SQLite/JSONL`。
-前后端分离；读接口只读、只算（秒开），写接口（触发评测）走后台 job + 轮询，不阻塞 HTTP。
+前后端分离；读接口只读、只算（秒开），写接口（触发评测）走后台 job + SSE 实时推送，不阻塞 HTTP。
+
+### 在线 Demo（零安装，直接点开）
+
+已部署在线版本，任何人点开就能看：
+
+> **https://offerlens-eval.app.workbuddy.host/?sharecode=XD4PMDP2MG**
+
+线上为**只读演示**（无 API Key）：榜单 / 对比矩阵 / case 详情 + trace 瀑布图都能交互查看，
+「运行评测」页可预览 prompt（dry-run，不发请求不花钱），完整跑批需本地运行。
 
 ### 启动（不花一分钱，零 API key）
 
@@ -213,7 +222,7 @@ npm run serve        # 后端（8787）
 npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api → 8787）
 ```
 
-### 三个视图 + 一个入口
+### 四个视图 + 一个入口
 
 | 视图 | 回答什么 | 关键点 |
 | --- | --- | --- |
@@ -223,10 +232,10 @@ npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api �
 | **Case 详情** | 单条 case 模型读到了什么、产出了什么 | 脱敏简历 + JD 硬门槛 + 三次重复建议 + trace 瀑布图 |
 | **运行评测** | 在 Web 端触发一次真实评测 | 选档位/规模/预算 → 后台跑批 → 实时进度 + 日志 → 完成自动刷新榜单 |
 
-「运行评测」把原来的 CLI 跑批搬进了 Web：`POST /api/eval` 启动后台 job，前端轮询
-`/api/eval/status` 拿进度与日志，完成即失效分析缓存、榜单自动刷新。核心逻辑与 CLI
-共用同一个 `src/eval/runner.ts` 的 `runEval()`（`scripts/run-eval.ts` 只是它的终端封装，
-参数解析 + 把事件渲染成终端输出）。
+「运行评测」把原来的 CLI 跑批搬进了 Web：`POST /api/eval` 启动后台 job，前端用 SSE
+（`/api/eval/stream`）实时接收进度与日志（SSE 不可用时自动降级轮询），完成即失效分析缓存、
+榜单自动刷新。核心逻辑与 CLI 共用同一个 `src/eval/runner.ts` 的 `runEval()`
+（`scripts/run-eval.ts` 只是它的终端封装，参数解析 + 把事件渲染成终端输出）。
 
 前端在 `web/`（独立 npm 工程），后端在 `src/server/`（复用 `src/metrics/` 与 `src/stats/` 的纯函数，
 **一行指标逻辑都没重复实现**）。
