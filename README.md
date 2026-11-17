@@ -7,6 +7,8 @@
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=white)
 
+[![在线 Demo](https://img.shields.io/badge/Demo-在线演示-2ea44f)](https://offerlens-eval.app.workbuddy.host/?sharecode=XD4PMDP2MG)
+
 **把「换了模型 / 改了 prompt 之后，效果到底有没有变好」变成可复现、可统计检验的结论。**
 
 一份简历 × 一份 JD 进去，Agent 产出改进建议；平台负责回答一个更难的问题：
