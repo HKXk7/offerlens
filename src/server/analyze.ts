@@ -379,6 +379,11 @@ let cache: {
   dataSource: 'real' | 'demo';
 } | null = null;
 
+/** 显式失效缓存（评测完成、数据变化后调用，兜底 mtime 判断） */
+export function invalidateCache(): void {
+  cache = null;
+}
+
 function dataMtime(): number {
   let m = 0;
   const dirs = [

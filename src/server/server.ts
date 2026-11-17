@@ -25,6 +25,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyze, caseDetail, compare, listCases } from './analyze.js';
+import { currentJob, jobHistory, startEval } from './evalJobs.js';
+import type { EvalOptions } from '../eval/runner.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const WEB_DIST = resolve(ROOT, 'web', 'dist');
@@ -108,11 +110,11 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, url: URL): boole
 
 function withCors(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   withCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -126,6 +128,78 @@ const server = createServer((req, res) => {
 
   /* ---------- API ---------- */
   if (path.startsWith('/api/')) {
+    /* POST /api/eval —— 启动评测（后台 job，唯一写接口） */
+    if (path === '/api/eval' && req.method === 'POST') {
+      let body: Record<string, unknown>;
+      try {
+        const raw = await readBody(req);
+        body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+      } catch {
+        sendJsonError(res, 400, '请求体不是合法 JSON');
+        return;
+      }
+
+      const opts: EvalOptions = {};
+
+      if (body.profiles !== undefined && body.profiles !== null) {
+        if (!Array.isArray(body.profiles) || body.profiles.some((x) => typeof x !== 'string')) {
+          sendJsonError(res, 400, 'profiles 需为字符串数组');
+          return;
+        }
+        opts.profiles = body.profiles as string[];
+      }
+      if (body.limit !== undefined) {
+        if (body.limit !== null && (typeof body.limit !== 'number' || !Number.isFinite(body.limit))) {
+          sendJsonError(res, 400, 'limit 需为数字或 null');
+          return;
+        }
+        opts.limit = body.limit as number | null;
+      }
+      if (body.runs !== undefined) {
+        if (typeof body.runs !== 'number' || !Number.isFinite(body.runs)) {
+          sendJsonError(res, 400, 'runs 需为数字');
+          return;
+        }
+        opts.runs = body.runs;
+      }
+      if (body.budget !== undefined) {
+        if (typeof body.budget !== 'number' || !Number.isFinite(body.budget)) {
+          sendJsonError(res, 400, 'budget 需为数字');
+          return;
+        }
+        opts.budget = body.budget;
+      }
+      if (body.concurrency !== undefined) {
+        if (typeof body.concurrency !== 'number' || !Number.isFinite(body.concurrency)) {
+          sendJsonError(res, 400, 'concurrency 需为数字');
+          return;
+        }
+        opts.concurrency = body.concurrency;
+      }
+      if (body.judge !== undefined) {
+        if (typeof body.judge !== 'boolean') {
+          sendJsonError(res, 400, 'judge 需为布尔值');
+          return;
+        }
+        opts.judge = body.judge;
+      }
+      if (body.dryRun !== undefined) {
+        if (typeof body.dryRun !== 'boolean') {
+          sendJsonError(res, 400, 'dryRun 需为布尔值');
+          return;
+        }
+        opts.dryRun = body.dryRun;
+      }
+
+      const result = startEval(opts);
+      if (!result.ok) {
+        sendJson(res, result.code === 'already_running' ? 409 : 400, { error: result.error, code: result.code });
+        return;
+      }
+      sendJson(res, 202, { job: result.job });
+      return;
+    }
+
     if (req.method !== 'GET') {
       sendJsonError(res, 405, 'method not allowed');
       return;
@@ -133,6 +207,16 @@ const server = createServer((req, res) => {
 
     if (path === '/api/health') {
       sendJson(res, 200, { ok: true, time: new Date().toISOString() });
+      return;
+    }
+
+    if (path === '/api/eval/status') {
+      sendJson(res, 200, { job: currentJob() });
+      return;
+    }
+
+    if (path === '/api/eval/jobs') {
+      sendJson(res, 200, { jobs: jobHistory() });
       return;
     }
 

@@ -170,3 +170,72 @@ export interface CaseDetailResult {
 export interface CasesResponse {
   cases: CaseMeta[];
 }
+
+/* ---------- 运行评测 job（与后端 src/server/evalJobs.ts 对应） ---------- */
+
+export interface EvalProgress {
+  phase: 'generating' | 'judging';
+  completed: number;
+  total: number;
+  spentCny: number;
+  remainingCny: number;
+  hasFailure: boolean;
+}
+
+export interface EvalSummary {
+  profiles: string[];
+  caseCount: number;
+  totalRuns: number;
+  runs: number;
+  judge: boolean;
+  spentCny: number;
+  genCostTotal: number;
+  judgeCostTotal: number;
+  noOutput: number;
+  failures: number;
+  reportPath: string | null;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+}
+
+export interface EvalJobOpts {
+  profiles: string[] | null;
+  limit: number | null;
+  runs: number;
+  judge: boolean;
+  budget: number;
+  concurrency: number;
+  dryRun: boolean;
+}
+
+export interface EvalJob {
+  id: string;
+  status: 'running' | 'done' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  opts: EvalJobOpts;
+  progress: EvalProgress | null;
+  logs: string[];
+  summary: EvalSummary | null;
+  error: string | null;
+  errorCode: string | null;
+}
+
+export interface StartEvalRequest {
+  profiles?: string[] | null;
+  limit?: number | null;
+  runs?: number;
+  judge?: boolean;
+  budget?: number;
+  concurrency?: number;
+  dryRun?: boolean;
+}
+
+export interface EvalStatusResponse {
+  job: EvalJob | null;
+}
+
+export interface EvalJobsResponse {
+  jobs: EvalJob[];
+}

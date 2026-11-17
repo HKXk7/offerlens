@@ -189,9 +189,11 @@ npm run eval:report  # ④ 只按已落盘数据重出报告，不重跑、不�
 
 ## Web 控制台（可视化）
 
-除了 Markdown 报告，还带一个**可视化控制台**：把「榜单 / 对比矩阵 / 切片下钻」做成可交互界面。
+除了 Markdown 报告，还带一个**可视化控制台**：把「榜单 / 对比矩阵 / 切片下钻 / case 详情 + trace 瀑布图」
+做成可交互界面，并且能**直接在 Web 端触发一次评测跑批**（前后端完整闭环，不再是只读看板）。
 
-**架构**：`React 18 + Vite + TanStack Table 前端 → 零依赖 Node HTTP API（`node:http`）→ 复用同一套指标/统计纯函数 → SQLite/JSONL`。前后端分离，后端只读、只算（跑评测要花钱花时间，控制台要秒开）。
+**架构**：`React 18 + Vite + TanStack Table 前端 → 零依赖 Node HTTP API（`node:http`）→ 复用同一套指标/统计纯函数 → SQLite/JSONL`。
+前后端分离；读接口只读、只算（秒开），写接口（触发评测）走后台 job + 轮询，不阻塞 HTTP。
 
 ### 启动（不花一分钱，零 API key）
 
@@ -211,13 +213,20 @@ npm run serve        # 后端（8787）
 npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api → 8787）
 ```
 
-### 三个视图
+### 三个视图 + 一个入口
 
 | 视图 | 回答什么 | 关键点 |
 | --- | --- | --- |
 | **模型榜单** | 哪个模型 × prompt 最好 | 可排序；「达标率 / pass³ / 锚点覆盖」越高越好，带 ↓ 的越低越好 |
 | **对比矩阵** | 这次改动到底有没有变好 | 每个格子带「显著更好 / 显著更差 / 不显著」角标 + McNemar p 值或 95% CI |
 | **切片下钻** | 哪个子集偷偷退化了 | 能力类指标全保留，资源类（成本/延迟）折叠 |
+| **Case 详情** | 单条 case 模型读到了什么、产出了什么 | 脱敏简历 + JD 硬门槛 + 三次重复建议 + trace 瀑布图 |
+| **运行评测** | 在 Web 端触发一次真实评测 | 选档位/规模/预算 → 后台跑批 → 实时进度 + 日志 → 完成自动刷新榜单 |
+
+「运行评测」把原来的 CLI 跑批搬进了 Web：`POST /api/eval` 启动后台 job，前端轮询
+`/api/eval/status` 拿进度与日志，完成即失效分析缓存、榜单自动刷新。核心逻辑与 CLI
+共用同一个 `src/eval/runner.ts` 的 `runEval()`（`scripts/run-eval.ts` 只是它的终端封装，
+参数解析 + 把事件渲染成终端输出）。
 
 前端在 `web/`（独立 npm 工程），后端在 `src/server/`（复用 `src/metrics/` 与 `src/stats/` 的纯函数，
 **一行指标逻辑都没重复实现**）。
@@ -281,7 +290,9 @@ offerlens/
 │   ├── db/init.ts             # node:sqlite（零原生依赖）+ WAL
 │   ├── server/                # Web 控制台后端
 │   │   ├── analyze.ts         # 聚合层：读 data/real，复用 metrics/stats 算榜单与对比
+│   │   ├── evalJobs.ts        # 评测 job 管理：后台跑批 + 进度/日志 + 前置检查（key/档位）
 │   │   └── server.ts          # 零依赖 node:http API + 静态托管 web/dist
+│   ├── eval/runner.ts         # runEval()：评测核心，CLI 与 Web 共用同一份
 │   └── lib/                   # prng（可复现）/ jsonl / budget / env
 ├── data/
 │   ├── jd/jds.json            # 12 个 JD（4 类岗位 × 3 级）
@@ -289,13 +300,13 @@ offerlens/
 │   ├── cases/                 # 24 组评测集（脚本生成）
 │   └── demo/                  # 合成演示数据（无 key 时控制台的回退来源）
 ├── web/                       # 前端：React 18 + Vite + TanStack Table（独立 npm 工程）
-│   └── src/                   #   App / Leaderboard / CompareView / SliceDrilldown
+│   └── src/                   #   App / Leaderboard / CompareView / CaseDetail / RunEval
 ├── scripts/
 │   ├── init-db.ts
 │   ├── build-cases.ts         # 固定种子分层抽样 → 24 组
 │   ├── demo.ts                # 离线端到端
 │   ├── seed-demo-runs.ts      # 生成合成演示数据
-│   └── run-eval.ts            # 真实模型运行器（并发池 / 双续跑 / 报告 / 落库）
+│   └── run-eval.ts            # 评测 CLI（薄封装，核心在 src/eval/runner.ts）
 ├── tests/                     # 112 个单测
 └── reports/                   # 生成的对比报告
 ```

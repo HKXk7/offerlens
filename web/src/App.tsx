@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 import type { LeaderboardResponse, MetaResponse } from './types';
 import { Leaderboard } from './components/Leaderboard';
 import { CompareView } from './components/CompareView';
 import { CaseDetail } from './components/CaseDetail';
+import { RunEval } from './components/RunEval';
 import { Tag } from './components/Badge';
 
-type Tab = 'leaderboard' | 'compare' | 'case';
+type Tab = 'leaderboard' | 'compare' | 'case' | 'eval';
 
 export default function App() {
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -14,21 +15,21 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('leaderboard');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
+  const loadData = useCallback(() => {
     Promise.all([api.meta(), api.leaderboard()])
       .then(([m, l]) => {
-        if (!alive) return;
         setMeta(m);
         setLeaderboard(l);
+        setError(null);
       })
       .catch((e) => {
-        if (alive) setError(e instanceof Error ? e.message : String(e));
+        setError(e instanceof Error ? e.message : String(e));
       });
-    return () => {
-      alive = false;
-    };
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   return (
     <div className="app">
@@ -55,6 +56,9 @@ export default function App() {
         </button>
         <button className={tab === 'case' ? 'tab active' : 'tab'} onClick={() => setTab('case')}>
           Case 详情
+        </button>
+        <button className={tab === 'eval' ? 'tab active' : 'tab'} onClick={() => setTab('eval')}>
+          运行评测
         </button>
       </nav>
 
@@ -121,6 +125,12 @@ export default function App() {
             </div>
             <CaseDetail profiles={meta.profiles} />
           </section>
+        </main>
+      )}
+
+      {!error && meta && tab === 'eval' && (
+        <main className="main">
+          <RunEval profiles={meta.profiles} onEvalDone={loadData} />
         </main>
       )}
 
