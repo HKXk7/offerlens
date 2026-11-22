@@ -42,7 +42,10 @@ import type { StepSpan } from '../src/schema/trace.js';
 import { buildCases } from './build-cases.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = resolve(ROOT, 'data/demo');
+// 刻意与 data/demo 分开：data/demo 是**随仓库分发的演示数据集**（seed:demo 的产物，
+// 控制台在 data/real 为空时回退到它），而这里是 demo 跑批的一次性产物。
+// 两者写同一个目录会让「随仓库的 fixture」和「临时产物」混在一起，git 里也会冒出一堆噪声。
+const OUT = resolve(ROOT, 'data/demo-run');
 
 /* ================================================================== */
 /* 1. 被测对象画像（用合成数据代替真实模型）                            */
