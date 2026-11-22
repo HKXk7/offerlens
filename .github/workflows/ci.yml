@@ -26,6 +26,7 @@ jobs:
   test:
     name: 类型检查 + 单元测试
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +48,7 @@ jobs:
   pipeline:
     name: 零成本管线（无 API Key）
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -84,6 +86,7 @@ jobs:
   web:
     name: 前端构建
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: web
