@@ -7,6 +7,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=white)
 
+[![CI](https://github.com/HKXk7/offerlens/actions/workflows/ci.yml/badge.svg)](https://github.com/HKXk7/offerlens/actions/workflows/ci.yml)
 [![在线 Demo](https://img.shields.io/badge/Demo-在线演示-2ea44f)](https://offerlens-eval.app.workbuddy.host/?sharecode=XD4PMDP2MG)
 
 **把「换了模型 / 改了 prompt 之后，效果到底有没有变好」变成可复现、可统计检验的结论。**
@@ -54,7 +55,7 @@ LLM 输出没有标准答案，24 组样本里的「2.31 → 2.34」大概率只
 
 ### 环境要求
 
-- **Node.js ≥ 22.5.0**（用到内置的 `node:sqlite`，无任何原生依赖；开发环境为 22.22）
+- **Node.js ≥ 22.5.0**（用到内置的 `node:sqlite`，无任何原生依赖；开发环境为 22.22，版本号也写在 `.nvmrc` 里）
 - 没了。不需要装数据库、不需要 Docker
 
 ### 跑通（约 1 分钟，不花钱）
@@ -76,9 +77,23 @@ npm run demo          # 端到端：造数据 → 算指标 → 判显著 → �
 ### 跑测试
 
 ```bash
-npm test          # 112 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测）
+npm test          # 128 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验）
 npm run typecheck # tsc --noEmit
 ```
+
+### CI 在守什么
+
+每次 push / PR 触发三个 job，全部**不花一分钱、不需要 API Key**：
+
+| Job | 步骤 | 守的是什么 |
+| --- | --- | --- |
+| `test` | `tsc --noEmit` + 128 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
+| `pipeline` | `db:init → cases:build → demo → seed:demo` | 「fork 下来不填 key 也能跑通」是 README 的承诺，这条在守承诺本身 |
+| `pipeline` | 同一份数据重算两次，`diff` 必须为空 | 「可复现」的最小可验证形式；种子或排序一乱，两次跑出的报告就不可比 |
+| `web` | `tsc + vite build`，并确认 `dist/index.html` 产出 | 前端类型错不该等到部署才发现 |
+
+其中**「重算两次 diff 为空」这一条，是这个仓库里最像它自己的东西**：
+一个号称「可复现」的评测平台，如果连自己的报告都不能逐字复现，那所有显著性结论都是空的。
 
 ---
 
@@ -209,9 +224,13 @@ npm run eval:report  # ④ 只按已落盘数据重出报告，不重跑、不�
 ### 启动（不花一分钱，零 API key）
 
 ```bash
-npm run seed:demo    # ① 生成合成演示数据（data/real 为空时控制台会自动回退到它）
-npm run serve        # ② 启动 API + 静态托管，浏览器打开 http://localhost:8787
+npm run seed:demo     # ① 生成合成演示数据（data/real 为空时控制台会自动回退到它）
+npm run web:build     # ② 构建前端（web/dist 是产物、不进仓库，只需跑这一次）
+npm run serve         # ③ 启动 API + 静态托管，浏览器打开 http://localhost:8787
 ```
+
+> 漏掉第 ② 步也不会白屏或看到裸 JSON —— 后端会返回一张引导页，直接告诉你缺哪条命令、
+> 并给出在线 Demo 的入口。这种「一步之差」是最容易被放弃的位置，值得专门处理。
 
 clone 下来没跑过真实评测时，控制台会自动展示**合成演示数据**（页面顶部有黄条标注），
 保证「clone → serve → 看到有数据的榜单」三步走通。接入真实模型后跑一次 `npm run eval`，
@@ -275,6 +294,7 @@ npm run web:build       # 构建前端到 web/dist
 
 ```
 offerlens/
+├── .github/workflows/ci.yml   # CI：类型 + 单测 + 零成本管线 + 可复现性 + 前端构建
 ├── schema/schema.sql          # 9 张表 + 索引 + schema_version
 ├── src/
 │   ├── agent/                 # 被测对象 + 模型接入
@@ -309,7 +329,8 @@ offerlens/
 │   ├── jd/jds.json            # 12 个 JD（4 类岗位 × 3 级）
 │   ├── resumes/resumes.json   # 4 份合成简历（丰富/单薄/转行/残缺）
 │   ├── cases/                 # 24 组评测集（脚本生成）
-│   └── demo/                  # 合成演示数据（无 key 时控制台的回退来源）
+│   └── demo/                  # 合成演示数据（无 key 时控制台的回退来源，随仓库分发）
+│       └── traces/            #   预生成的 trace，供 case 详情瀑布图直接可用
 ├── web/                       # 前端：React 18 + Vite + TanStack Table（独立 npm 工程）
 │   └── src/                   #   App / Leaderboard / CompareView / CaseDetail / RunEval
 ├── scripts/
@@ -318,7 +339,7 @@ offerlens/
 │   ├── demo.ts                # 离线端到端
 │   ├── seed-demo-runs.ts      # 生成合成演示数据
 │   └── run-eval.ts            # 评测 CLI（薄封装，核心在 src/eval/runner.ts）
-├── tests/                     # 112 个单测
+├── tests/                     # 128 个单测
 └── reports/                   # 生成的对比报告
 ```
 
@@ -403,6 +424,10 @@ judge 模型 ≠ 被测模型。否则「自证」会让所有指标失去意义
 
 **Q：可以只跑某个模型吗？**
 可以。`npm run eval -- --profile sf-qwen35-122b__p2-strict --limit 4`。
+
+**Q：`npm run serve` 打开是 404 / 一片空白？**
+前端没构建。`web/dist` 是构建产物、不进仓库，先跑一次 `npm run web:build` 再刷新（不用重启后端）。
+现在漏了这步会看到一张引导页而不是白屏，照着上面那条命令做即可。
 
 ---
 
