@@ -77,7 +77,7 @@ npm run demo          # 端到端：造数据 → 算指标 → 判显著 → �
 ### 跑测试
 
 ```bash
-npm test          # 128 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验）
+npm test          # 137 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫）
 npm run typecheck # tsc --noEmit
 ```
 
@@ -87,13 +87,25 @@ npm run typecheck # tsc --noEmit
 
 | Job | 步骤 | 守的是什么 |
 | --- | --- | --- |
-| `test` | `tsc --noEmit` + 128 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
+| `test` | `tsc --noEmit` + 137 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
 | `pipeline` | `db:init → cases:build → demo → seed:demo` | 「fork 下来不填 key 也能跑通」是 README 的承诺，这条在守承诺本身 |
 | `pipeline` | 同一份数据重算两次，`diff` 必须为空 | 「可复现」的最小可验证形式；种子或排序一乱，两次跑出的报告就不可比 |
 | `web` | `tsc + vite build`，并确认 `dist/index.html` 产出 | 前端类型错不该等到部署才发现 |
 
 其中**「重算两次 diff 为空」这一条，是这个仓库里最像它自己的东西**：
 一个号称「可复现」的评测平台，如果连自己的报告都不能逐字复现，那所有显著性结论都是空的。
+
+> **CI 上线当天就抓到两个真 bug，都是「只在新机器上出现」的那类：**
+>
+> 1. **全新的库上 `npm run demo` 直接崩**：`result.case_id` 对 `eval_case` 有外键约束，
+>    而 `npm run cases:build`（不带 `--db`）并不写库 → 往空表插 result → `FOREIGN KEY constraint failed`。
+>    在开发机上永远复现不了，因为本地库里早就有历史数据。
+> 2. **`npm run cases:build` 在某些机器上静默空跑**：入口守卫比的是
+>    `resolve(argv[1]) === fileURLToPath(import.meta.url)`，而工作目录被 junction / 符号链接过时
+>    这两条路径字面值永不相等 → `main()` 从不被调用，不报错、退出码 0、什么都不打印。
+>
+> 两条都补了回归测试（`tests/db.test.ts` / `tests/entry.test.ts`），
+> 后者用符号链接构造出那个「字面值不等但其实是同一个文件」的场景。
 
 ---
 
@@ -339,7 +351,7 @@ offerlens/
 │   ├── demo.ts                # 离线端到端
 │   ├── seed-demo-runs.ts      # 生成合成演示数据
 │   └── run-eval.ts            # 评测 CLI（薄封装，核心在 src/eval/runner.ts）
-├── tests/                     # 128 个单测
+├── tests/                     # 137 个单测
 └── reports/                   # 生成的对比报告
 ```
 
