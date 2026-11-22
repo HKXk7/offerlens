@@ -108,6 +108,63 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, url: URL): boole
   return true;
 }
 
+/**
+ * `web/dist` 不存在时给浏览器的引导页。
+ *
+ * 为什么需要：`web/dist` 是构建产物，不进仓库（.gitignore 里排除了 dist/）。
+ * 所以「clone → npm install → npm run serve → 打开 8787」这条最自然的路径，
+ * 在新机器上会看到一个 404 或一段裸 JSON —— 用户根本不知道是自己少跑了一步。
+ * 这里返回一张能直接照着做的页面，把「构建前端」这步显式讲出来。
+ */
+function serveBuildGuide(res: ServerResponse): void {
+  const html = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OfferLens · 前端尚未构建</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 32px;
+         font: 15px/1.7 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: #f6f7f9; color: #1f2328; }
+  main { width: 100%; max-width: 680px; background: #fff; border: 1px solid #e4e7ec;
+         border-radius: 14px; padding: 32px 34px; box-shadow: 0 2px 12px rgba(16,24,40,.05); }
+  .tag { display: inline-block; font-size: 12px; letter-spacing: .04em; color: #8a6d1f;
+         background: #fdf5d8; border: 1px solid #f0e0a8; border-radius: 999px; padding: 2px 10px; }
+  h1 { font-size: 21px; margin: 14px 0 6px; font-weight: 650; }
+  p { margin: 10px 0; color: #444b53; }
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px;
+         background: #f1f3f5; border-radius: 5px; padding: 1px 5px; }
+  pre { margin: 12px 0; background: #0f172a; color: #e6edf3; border-radius: 10px;
+        padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.65; }
+  pre .c { color: #8b98a9; }
+  ol { padding-left: 20px; margin: 10px 0; }
+  li { margin: 8px 0; color: #444b53; }
+  .alt { margin-top: 22px; padding-top: 18px; border-top: 1px dashed #e4e7ec; font-size: 14px; }
+  a { color: #0969da; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .muted { color: #6b7280; font-size: 13px; }
+</style></head>
+<body><main>
+  <span class="tag">API 已启动 · 前端未构建</span>
+  <h1>差一步就能看到控制台</h1>
+  <p>后端接口全部可用，但 <code>web/dist</code> 是构建产物，不随仓库分发。
+     跑一条命令构建前端，然后刷新本页即可。</p>
+  <pre><span class="c"># 在仓库根目录执行（只需一次）</span>
+npm run web:build</pre>
+  <ol>
+    <li>构建完成后<strong>刷新本页</strong>（无需重启后端，静态文件是每次请求现读的）；</li>
+    <li>想改前端代码用热更新：另开终端跑 <code>npm run web:dev</code>，访问 5173 端口。</li>
+  </ol>
+  <div class="alt">
+    <p>只想看看界面长什么样？<a href="https://offerlens-eval.app.workbuddy.host/?sharecode=XD4PMDP2MG" target="_blank" rel="noreferrer">打开在线 Demo →</a></p>
+    <p class="muted">接口探针：<code>/api/health</code> · <code>/api/meta</code> · <code>/api/leaderboard</code></p>
+  </div>
+</main></body></html>`;
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+  res.end(html);
+}
+
 function withCors(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -322,6 +379,13 @@ const server = createServer(async (req, res) => {
 
   /* ---------- 静态托管 ---------- */
   if (!serveStatic(req, res, url)) {
+    // 浏览器直接访问页面路由：给能照着操作的引导页，而不是一段裸 JSON。
+    // 接口路径（/api/*）已在上面各自返回，走不到这里。
+    const accept = req.headers.accept ?? '';
+    if (accept.includes('text/html')) {
+      serveBuildGuide(res);
+      return;
+    }
     sendJson(res, 200, {
       service: 'OfferLens Web API',
       hint: '前端尚未构建。请先 `npm run web:build`，或用 `npm run web:dev` 启动 Vite 开发服务器。',
