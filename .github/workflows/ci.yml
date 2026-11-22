@@ -1,0 +1,107 @@
+name: CI
+
+# 这个仓库的卖点是「可复现、可统计检验」——那么它自己的每次改动也该被同一套标准检验。
+# 三类检查各自独立成 job，谁能先跑完先绿：
+#   1. 类型 + 单测：统计与指标纯函数的口径是否还成立
+#   2. 零成本管线：clone 下来「不填 key 也能跑通」这条承诺是否还成立
+#   3. 前端构建：Web 控制台是否能编译
+# 全部不需要 API Key，跑一次 ¥0。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一个分支连续 push 时，取消上一次还在跑的（省额度，也让状态更早收敛）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 类型检查 + 单元测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # node:sqlite 是 Node 内置模块，没有任何原生依赖，所以这里不需要装数据库
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元测试
+        run: npm test
+
+  pipeline:
+    name: 零成本管线（无 API Key）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # README 承诺「fork 下来不填 key 也能跑通全流程」，这里就是在守这条承诺。
+      # 任何一步挂了，说明新用户的第一步就已经走不通了。
+      - name: 建库
+        run: npm run db:init
+
+      - name: 生成评测集（固定种子，结果可复现）
+        run: npm run cases:build
+
+      - name: 离线端到端 demo
+        run: npm run demo
+
+      - name: 生成演示数据（控制台无 key 时的回退）
+        run: npm run seed:demo
+
+      # 样例跑批必须是确定性的：同一份数据重算两次，对比矩阵要一模一样。
+      # 这是「可复现」这个承诺的最小可验证形式。
+      - name: 幂等性检查（重算报告应完全一致）
+        run: |
+          cp reports/compare.md /tmp/compare-1.md
+          npm run demo > /dev/null
+          diff -q /tmp/compare-1.md reports/compare.md \
+            && echo "✅ 重算结果一致" \
+            || { echo "❌ 同一份数据重算结果不一致，可复现性被破坏"; exit 1; }
+
+  web:
+    name: 前端构建
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      # build 脚本本身带 tsc --noEmit，类型错和打包错都会在这一步暴露
+      - name: 构建（tsc + vite build）
+        run: npm run build
+
+      - name: 确认产物完整
+        run: test -f dist/index.html && echo "✅ dist/index.html 存在"
