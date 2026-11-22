@@ -14,9 +14,11 @@
  *   npx tsx scripts/build-cases.ts --seed 20261004
  *   npx tsx scripts/build-cases.ts --db           # 同时写入 SQLite
  */
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadJsonCollection, writeJson, writeJsonl } from '../src/lib/jsonl.js';
+import { isMainModule } from '../src/lib/entry.js';
 import { mulberry32, type Rng } from '../src/lib/prng.js';
 import {
   JOB_CATEGORIES,
@@ -29,6 +31,7 @@ import {
   type Resume,
 } from '../src/schema/case.js';
 import { initDb } from '../src/db/init.js';
+import { seedDatasetRows } from '../src/db/seed-dataset.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -232,10 +235,28 @@ function main(): void {
   const jds = loadJsonCollection<Jd>(resolve(ROOT, 'data/jd'));
   const resumes = loadJsonCollection<Resume>(resolve(ROOT, 'data/resumes'));
 
-  const { dataset, cases, hardNegativeReasons } = buildCases(resumes, jds, { seed });
+  const built = buildCases(resumes, jds, { seed });
+
+  // 同版本重建时保留首次创建时间。
+  // 否则每跑一次 cases:build，data/cases/dataset.json 就脏一次（只差一个时间戳），
+  // `git status` 常驻一条修改、提交历史里也全是噪声 —— 而版本和 case 内容其实一模一样。
+  // created_at 表达的本来就该是「这一版首次生成于何时」，不是「上次跑了什么时候」。
+  const datasetPath = resolve(ROOT, 'data/cases/dataset.json');
+  let dataset = built.dataset;
+  if (existsSync(datasetPath)) {
+    try {
+      const prev = JSON.parse(readFileSync(datasetPath, 'utf8')) as Partial<typeof dataset>;
+      if (prev.version === dataset.version && prev.seed === dataset.seed && prev.created_at) {
+        dataset = { ...dataset, created_at: prev.created_at };
+      }
+    } catch {
+      // 旧文件损坏就按新的写，不因为读不动而中断
+    }
+  }
+  const { cases, hardNegativeReasons } = built;
 
   writeJsonl(resolve(ROOT, 'data/cases/cases.jsonl'), cases);
-  writeJson(resolve(ROOT, 'data/cases/dataset.json'), dataset);
+  writeJson(datasetPath, dataset);
   writeJson(resolve(ROOT, 'data/cases/hard-negatives.json'), hardNegativeReasons);
 
   console.log(`✅ 评测集已生成`);
@@ -259,43 +280,9 @@ function main(): void {
   if (process.argv.includes('--db')) {
     const handle = initDb(resolve(ROOT, 'data/offerlens.db'), resolve(ROOT, 'schema/schema.sql'));
     const { db } = handle;
-    db.prepare(
-      'INSERT OR REPLACE INTO dataset (id, version, seed, created_at) VALUES (?, ?, ?, ?)',
-    ).run(dataset.id, dataset.version, dataset.seed, dataset.created_at);
-
-    const insResume = db.prepare(
-      `INSERT OR REPLACE INTO resume
-       (id, anon_id, headline, experience_level, major_related, segments_json, skills_json, profile_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    for (const r of resumes) {
-      insResume.run(
-        r.id, r.anon_id, r.headline, r.experience_level, r.major_related ? 1 : 0,
-        JSON.stringify(r.segments), JSON.stringify(r.skills),
-        JSON.stringify({ internships: r.internships, projects: r.projects }),
-      );
-    }
-
-    const insJd = db.prepare(
-      `INSERT OR REPLACE INTO jd
-       (id, title, company_type, category, level, raw, hard_req_json, soft_req_json, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    for (const j of jds) {
-      insJd.run(j.id, j.title, j.company_type, j.category, j.level, j.raw,
-        JSON.stringify(j.hard_req), JSON.stringify(j.soft_req), j.source);
-    }
-
-    const insCase = db.prepare(
-      `INSERT OR REPLACE INTO eval_case
-       (id, dataset_id, dataset_version, resume_id, jd_id, category, experience_level, level,
-        is_hard_negative, is_golden)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    for (const c of cases) {
-      insCase.run(c.id, dataset.id, c.dataset_version, c.resume_id, c.jd_id, c.tags.category,
-        c.tags.experience_level, c.tags.level, c.is_hard_negative ? 1 : 0, c.is_golden ? 1 : 0);
-    }
+    // 外键父行由公共函数写，顺序（dataset → resume → jd → eval_case）不能变：
+    // eval_case 依赖 resume 与 jd，result 又依赖 eval_case。
+    seedDatasetRows(db, { dataset, resumes, jds, cases });
     const total = db.prepare('SELECT COUNT(*) AS c FROM eval_case').get() as { c: number };
     console.log(`\n✅ 已写入 SQLite：eval_case 现有 ${total.c} 行`);
     db.close();
@@ -308,7 +295,9 @@ function main(): void {
   }
 }
 
-// 只有被直接执行时才跑 CLI，被测试 import 时保持静默
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// 只有被直接执行时才跑 CLI，被测试 import 时保持静默。
+// 这里必须走 realpath 比较：工作目录被 junction / 符号链接时，
+// argv[1] 与 import.meta.url 的字面值不相等，脚本会静默空跑（不报错、退出码 0）。
+if (isMainModule(import.meta.url, process.argv[1])) {
   main();
 }

@@ -16,6 +16,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDb } from '../src/db/init.js';
+import { seedDatasetRows } from '../src/db/seed-dataset.js';
 import { loadJsonCollection, readJsonl, writeJsonl } from '../src/lib/jsonl.js';
 import { mulberry32, seedFromString, type Rng } from '../src/lib/prng.js';
 import { buildDict, type EntityDict } from '../src/metrics/entities.js';
@@ -471,9 +472,10 @@ function main(): void {
   /* ---------------- SQLite 落库，验证 schema ---------------- */
   const handle = initDb(resolve(ROOT, 'data/offerlens.db'), resolve(ROOT, 'schema/schema.sql'));
   const { db } = handle;
-  db.prepare(
-    'INSERT OR REPLACE INTO dataset (id, version, seed, created_at) VALUES (?, ?, ?, ?)',
-  ).run(dataset.id, dataset.version, dataset.seed, dataset.created_at);
+  // 先补外键父行（dataset / resume / jd / eval_case）。
+  // 不做这一步，下面写 result 会直接 FOREIGN KEY constraint failed ——
+  // 而且**只在全新的库上**复现：开发机上的旧数据会让它看起来一切正常。
+  seedDatasetRows(db, { dataset, resumes, jds, cases });
 
   const insRun = db.prepare(
     `INSERT OR REPLACE INTO eval_run
