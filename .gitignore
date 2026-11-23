@@ -16,6 +16,11 @@ data/archive-smoke/
 # npm run demo 的一次性产物（离线合成跑批的 trace），与随仓库分发的 data/demo 分开
 data/demo-run/
 
+# `npm run diagnose` 的单条真实诊断记录：**里面有你的真实简历原文**，
+# 比 data/real/ 更不能提交。报告（reports/diagnose-*.md）同样含全文，一并忽略。
+data/live/
+reports/diagnose-*.md
+
 # 注意：reports/real-*.md **不忽略**。
 # 报告里只有聚合指标与显著性表格，没有建议原文，可以安全提交 ——
 # 而它恰恰是这个项目要给人看的东西（简历项目没报告等于没做）。

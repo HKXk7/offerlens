@@ -44,6 +44,15 @@ export interface AgentRunResult {
   invalidAnchors: string[];
   /** 解析 JD 得到的硬性要求（落库后可用于交叉检查） */
   hardReq: string[];
+  /**
+   * 每条硬门槛的核对结果（第 2 步判定 + 第 3 步校验后的产物）。
+   *
+   * 批量评测只需要覆盖率这一个数字，所以过去这一层被丢掉了；
+   * 但**单条诊断**（`npm run diagnose`）要回答的是"我这条要求到底缺哪句证据"，
+   * 那就必须把 hit / partial / missing 和 evidence_seg_ids 露出来。
+   * 这里只是把已经算出来的东西带出去，不额外花 token。
+   */
+  gates: GateEvidence[];
 }
 
 interface RawSuggestion {
@@ -125,6 +134,7 @@ export class OfferAgent {
       error: string | null,
       invalidAnchors: string[],
       hardReq: string[],
+      gates: GateEvidence[] = [],
     ): AgentRunResult => {
       rootSpan.end = Date.now();
       rootSpan.error = error;
@@ -138,6 +148,9 @@ export class OfferAgent {
         error,
         invalidAnchors,
         hardReq,
+        // 出错提前返回时 gates 一定为空：那不是"门槛都缺"，而是"没跑完"，
+        // 调用方必须靠 error 字段区分这两种情况。
+        gates,
       };
     };
 
@@ -309,7 +322,7 @@ export class OfferAgent {
     });
 
     if (suggestions.length === 0) {
-      return finish([], 'generate 未产出任何有效建议', invalidAnchors, jdAnalysis.hard_req);
+      return finish([], 'generate 未产出任何有效建议', invalidAnchors, jdAnalysis.hard_req, validGates);
     }
 
     rootSpan.attrs = {
@@ -318,7 +331,7 @@ export class OfferAgent {
       anchor_rate: suggestions.filter((s) => s.anchor_seg_id !== null).length / suggestions.length,
       invalid_anchor_count: invalidAnchors.length,
     };
-    return finish(suggestions, null, invalidAnchors, jdAnalysis.hard_req);
+    return finish(suggestions, null, invalidAnchors, jdAnalysis.hard_req, validGates);
   }
 }
 

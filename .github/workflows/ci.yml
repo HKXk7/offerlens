@@ -67,6 +67,11 @@ jobs:
       - name: 生成评测集（固定种子，结果可复现）
         run: npm run cases:build
 
+      # 单条诊断里不花钱的那一半：切分 + 参数校验。
+      # 守的是「示例简历能被切开」—— 切不动的话，新用户第一条命令就是报错。
+      - name: 单条诊断（dry-run，不调用模型）
+        run: npm run diagnose -- --resume examples/sample-resume.md --jd examples/sample-jd.txt --dry-run
+
       - name: 离线端到端 demo
         run: npm run demo
 

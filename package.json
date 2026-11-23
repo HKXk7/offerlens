@@ -11,6 +11,7 @@
     "db:init": "tsx scripts/init-db.ts",
     "cases:build": "tsx scripts/build-cases.ts",
     "demo": "tsx scripts/demo.ts",
+    "diagnose": "tsx scripts/diagnose.ts",
     "eval:dry": "tsx scripts/run-eval.ts --dry-run",
     "eval": "tsx scripts/run-eval.ts",
     "eval:smoke": "tsx scripts/run-eval.ts --limit 4 --runs 1",

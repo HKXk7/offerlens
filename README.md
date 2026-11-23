@@ -37,6 +37,7 @@ LLM 输出没有标准答案，24 组样本里的「2.31 → 2.34」大概率只
 ## 目录
 
 - [快速开始](#快速开始)
+- [诊断你自己的一份简历](#诊断你自己的一份简历单条)
 - [接入真实模型](#接入真实模型)
 - [指标体系：没有标准答案时怎么评测](#指标体系没有标准答案时怎么评测)
 - [它跑出来长什么样](#它跑出来长什么样)
@@ -77,7 +78,7 @@ npm run demo          # 端到端：造数据 → 算指标 → 判显著 → �
 ### 跑测试
 
 ```bash
-npm test          # 137 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫）
+npm test          # 156 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫、简历切分与诊断参数）
 npm run typecheck # tsc --noEmit
 ```
 
@@ -87,9 +88,10 @@ npm run typecheck # tsc --noEmit
 
 | Job | 步骤 | 守的是什么 |
 | --- | --- | --- |
-| `test` | `tsc --noEmit` + 137 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
+| `test` | `tsc --noEmit` + 156 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
 | `pipeline` | `db:init → cases:build → demo → seed:demo` | 「fork 下来不填 key 也能跑通」是 README 的承诺，这条在守承诺本身 |
 | `pipeline` | 同一份数据重算两次，`diff` 必须为空 | 「可复现」的最小可验证形式；种子或排序一乱，两次跑出的报告就不可比 |
+| `pipeline` | `diagnose --dry-run examples/*` | 单条诊断的切分链路还能不能跑通（不调模型、不花钱） |
 | `web` | `tsc + vite build`，并确认 `dist/index.html` 产出 | 前端类型错不该等到部署才发现 |
 
 其中**「重算两次 diff 为空」这一条，是这个仓库里最像它自己的东西**：
@@ -110,6 +112,54 @@ npm run typecheck # tsc --noEmit
 >
 > 两条都补了回归测试（`tests/db.test.ts` / `tests/entry.test.ts`），
 > 后者用符号链接构造出那个「字面值不等但其实是同一个文件」的场景。
+
+---
+
+## 诊断你自己的一份简历（单条）
+
+前面的命令都是「造评测集、跑批量」。如果你只想知道**自己这份简历投这个岗位该怎么改**，
+用 `diagnose`：一份简历 + 一份 JD，一次调用，出**带出处**的建议。
+
+```bash
+cp examples/sample-resume.md my-resume.md        # 换成你自己的简历
+npm run diagnose -- --resume my-resume.md --jd examples/sample-jd.txt --dry-run   # 先看切分对不对，不花钱
+npm run diagnose -- --resume my-resume.md --jd examples/sample-jd.txt             # 真跑一次
+npm run diagnose -- --resume my-resume.md --jd examples/sample-jd.txt --runs 3    # 跑三次看结论稳不稳
+```
+
+一次约 **¥0.015**（2295 in / 935 out / 19s，实测数据）。
+
+输出四段：**硬门槛逐条核对**（命中 / 部分 / 缺失 + 证据段）→ **建议**（每条对应到简历的具体某一段）
+→ **口径自检**（带锚点覆盖率、无源实体率、假锚点数）→ **成本与耗时**。
+
+同时落三份东西，全部在 `.gitignore` 里：
+
+| 产物 | 路径 | 用途 |
+| --- | --- | --- |
+| Markdown 报告 | `reports/diagnose-<时间戳>.md` | 可以发给别人看的那份 |
+| 运行记录 | `data/live/runs-<时间戳>.jsonl` | 与批量评测同格式，可复算 |
+| 输入快照 | `data/live/inputs/<case>.json` | 事后核对「锚点是不是指对了段」 |
+
+**它和批量评测的区别，是刻意分开的：**
+
+| | `npm run eval` | `npm run diagnose` |
+| --- | --- | --- |
+| 输入 | 24 组人工拆好的评测集 | 你的纯文本简历 + 真实 JD |
+| 回答 | 模型 / prompt 改得好不好 | 我这份简历该怎么改 |
+| 统计 | 多次重复 + 显著性检验 | 单次（`--runs 3` 才看稳定性） |
+| 落盘 | `data/real/`，进报告、进榜单 | `data/live/`，**不进评测集** |
+
+为什么不让诊断进评测集：`data/cases/` 是 24 组固定评测集，混进一条真实简历会破坏
+「换台机器能复现同一批 case」这个前提，排名和显著性就都不能再比了。所以诊断走独立目录。
+
+> ⚠️ **简历和 JD 会被发给模型厂商。** `data/live/` 与 `reports/diagnose-*.md` 都在 `.gitignore` 里、不会被提交，
+> 但**脱敏是你自己的责任**：手机号、身份证号、公司内部项目名，发出去之前先删掉。
+
+切分的三条硬要求（也是 `src/lib/resume-text.ts` 的设计目标）：**确定性**（同一份文本切两次完全一样）、
+**自描述**（段文本带上小节名，如 `教育背景：…`，锚点单独摘出来也读得懂）、**不吞内容**（超长段按句读切，不截断）。
+
+纯文本简历怎么整理才好切：**一段一行**，小节名用 `## 教育背景` / `## 项目经历` 这类能识别的词。
+双栏排版导出的 txt 会把两栏串成一行，锚点会指错段 —— 这种情况先手工整理一遍，工具的 `--dry-run` 就是给这一步用的。
 
 ---
 
@@ -286,6 +336,7 @@ npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api �
 npm run db:init        # 建库
 npm run cases:build    # 生成 24 组评测集（固定种子）
 npm run demo           # 离线端到端演示（零成本）
+npm run diagnose -- --resume 简历.md --jd 岗位.txt   # 单条诊断（你的真实简历）
 
 # 真实模型
 npm run eval:dry       # 只打印 prompt
@@ -340,7 +391,8 @@ offerlens/
 │   │   ├── evalJobs.ts        # 评测 job 管理：后台跑批 + 进度/日志 + 前置检查（key/档位）
 │   │   └── server.ts          # 零依赖 node:http API + 静态托管 web/dist
 │   ├── eval/runner.ts         # runEval()：评测核心，CLI 与 Web 共用同一份
-│   └── lib/                   # prng（可复现）/ jsonl / budget / env
+│   ├── diagnose/              # 单条诊断：args（参数校验） / report（终端 + Markdown 渲染）
+│   └── lib/                   # prng（可复现）/ jsonl / budget / env / resume-text（简历切分）
 ├── data/
 │   ├── jd/jds.json            # 12 个 JD（4 类岗位 × 3 级）
 │   ├── resumes/resumes.json   # 4 份合成简历（丰富/单薄/转行/残缺）
@@ -353,9 +405,11 @@ offerlens/
 │   ├── init-db.ts
 │   ├── build-cases.ts         # 固定种子分层抽样 → 24 组
 │   ├── demo.ts                # 离线端到端
+│   ├── diagnose.ts            # 单条诊断 CLI（真实简历 × 真实 JD）
 │   ├── seed-demo-runs.ts      # 生成合成演示数据
 │   └── run-eval.ts            # 评测 CLI（薄封装，核心在 src/eval/runner.ts）
-├── tests/                     # 137 个单测
+├── examples/                  # 可直接跑的样例简历与 JD
+├── tests/                     # 156 个单测
 └── reports/                   # 生成的对比报告
 ```
 
@@ -441,9 +495,15 @@ judge 模型 ≠ 被测模型。否则「自证」会让所有指标失去意义
 **Q：可以只跑某个模型吗？**
 可以。`npm run eval -- --profile sf-qwen35-122b__p2-strict --limit 4`。
 
-**Q：`npm run serve` 打开是 404 / 一片空白？**
-前端没构建。`web/dist` 是构建产物、不进仓库，先跑一次 `npm run web:build` 再刷新（不用重启后端）。
+**Q：`npm run serve` 打开是 404 / 一片空白？**前端没构建。`web/dist` 是构建产物、不进仓库，先跑一次 `npm run web:build` 再刷新（不用重启后端）。
 现在漏了这步会看到一张引导页而不是白屏，照着上面那条命令做即可。
+
+**Q：`npm run diagnose` 会不会把我的简历提交到仓库？**
+不会。记录写在 `data/live/`、报告写到 `reports/diagnose-*.md`，两者都在 `.gitignore` 里。
+但要清楚**它会被发给模型厂商**（否则没法诊断），所以脱敏仍然是你自己的事。
+
+**Q：诊断结果能不能跟评测报告里的数字放一起比？**
+不能。评测集的 `hard_req` 是人工标注的，诊断时的门槛是模型**当场抽**的；前者固定、后者每次可能不同，口径不同不可相加。
 
 ---
 
