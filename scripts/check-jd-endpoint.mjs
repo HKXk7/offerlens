@@ -9,13 +9,17 @@
  *
  * 它同时能指向线上地址用：
  *   node scripts/check-jd-endpoint.mjs http://127.0.0.1:8787
- *   node scripts/check-jd-endpoint.mjs https://offerlens-eval.app.workbuddy.host
+ *   node scripts/check-jd-endpoint.mjs https://offerlens-eval.app.workbuddy.host XD4PMDP2MG
+ *
+ * 线上地址要带分享码：托管平台的分享门禁会把不带 sharecode 的请求挡成 403，
+ * 而那看起来和「接口挂了」几乎一样 —— 不写清楚，下次自己也会被误导。
  *
  * 退出码：0 通过 / 1 失败。失败时打印实际拿到的内容前 200 字，便于判断是 404、500 还是渲染错误。
  */
 
 const base = (process.argv[2] ?? 'http://127.0.0.1:8787').replace(/\/+$/, '');
-const url = `${base}/api/jds`;
+const sharecode = process.argv[3] ?? '';
+const url = `${base}/api/jds${sharecode ? `?sharecode=${encodeURIComponent(sharecode)}` : ''}`;
 
 const fail = (msg, extra) => {
   console.error(`❌ ${msg}`);
