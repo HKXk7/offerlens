@@ -6,7 +6,10 @@ import { buildCases } from '../scripts/build-cases.js';
 import { JOB_CATEGORIES, type Jd, type Resume } from '../src/schema/case.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const jds = JSON.parse(readFileSync(resolve(ROOT, 'data/jd/jds.json'), 'utf8')) as Jd[];
+const allJds = JSON.parse(readFileSync(resolve(ROOT, 'data/jd/jds.json'), 'utf8')) as Jd[];
+// 与 scripts/build-cases.ts 的默认行为保持一致：只拿合成 JD 组装固定评测集。
+// 真实 JD 进池需要显式 --include-real，单独有一条测试守它。
+const jds = allJds.filter((j) => j.source === 'synthetic');
 const resumes = JSON.parse(readFileSync(resolve(ROOT, 'data/resumes/resumes.json'), 'utf8')) as Resume[];
 
 describe('评测集组装', () => {
@@ -63,7 +66,10 @@ describe('评测集组装', () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it('评测集数据本身：12 个 JD、4 份简历、每类岗位 3 个', () => {
+  it('评测集数据本身：12 个合成 JD、4 份简历、每类岗位 3 个', () => {
+    // 断言的是「合成部分的构成」，不是 jds.json 的总条数 ——
+    // 真实 JD 会随采集不断增加，把总条数写死会让每加一条 JD 都要改测试，
+    // 而那恰恰是测试在阻止正常的数据积累。
     expect(jds).toHaveLength(12);
     expect(resumes).toHaveLength(4);
     for (const c of JOB_CATEGORIES) {
@@ -71,6 +77,24 @@ describe('评测集组装', () => {
     }
     // 4 种经历丰厚度各一份 —— 切片下钻要按它切
     expect(new Set(resumes.map((r) => r.experience_level)).size).toBe(4);
+  });
+
+  it('真实 JD 默认不进池，必须显式纳入', () => {
+    const realIds = new Set(allJds.filter((j) => j.source === 'real').map((j) => j.id));
+    expect(realIds.size).toBeGreaterThan(0);
+
+    const def = buildCases(resumes, jds, { seed: 20261004 });
+    expect(def.cases.some((c) => realIds.has(c.jd_id))).toBe(false);
+
+    const withReal = buildCases(resumes, allJds, {
+      seed: 20261004,
+      version: 'ds-v1-real-seed20261004',
+    });
+    // 组数不变（每份简历 6 组），但池子里多了真实 JD，抽样就会抽到它们
+    expect(withReal.cases).toHaveLength(def.cases.length);
+    expect(withReal.cases.some((c) => realIds.has(c.jd_id))).toBe(true);
+    // 版本号必须不同，否则"同一版本 = 同一内容"这个前提就不成立了
+    expect(withReal.dataset.version).not.toBe(def.dataset.version);
   });
 
   it('简历必须已脱敏：不含手机号/邮箱', () => {

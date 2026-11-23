@@ -72,8 +72,28 @@ export interface Jd {
   hard_req: string[];
   /** 软要求：加分项、业务方向 */
   soft_req: string[];
-  /** 数据来源标记。placeholder = 待替换成真实抓取的 JD */
+  /**
+   * 数据来源。
+   * - `synthetic`：按岗位画像手写，措辞刻意写得更规整（为了评测集可控）。
+   * - `real`：真实在招岗位的公开描述。会带水印噪声、套话、劝退条款。
+   *
+   * 这两类**不能混着算指标**：合成 JD 的 hard_req 更干净，gate_hit 天然偏乐观。
+   * 所以报告与覆盖度统计一律按 source 分组，不合并。
+   */
   source: 'synthetic' | 'real';
+  /**
+   * 获取方式。source=real 时必填 —— 它决定了这份数据能不能被第三方核验、以及
+   * 面试官问"这些 JD 你是不是爬下来的"时你的答案是否成立。
+   * - `manual-paste`：人从招聘页面复制，人工删掉无关内容
+   * - `search-curated`：据公开检索结果整理（非页面原文，可能有删节）
+   */
+  provenance?: 'manual-paste' | 'search-curated';
+  /** 采集时间（ISO 8601）。招聘 JD 会过期，没有采时间就无法判断结论的时效性 */
+  collected_at?: string;
+  /** raw 的 sha256 前 12 位：用来去重，以及判断"同一岗位内容有没有改过" */
+  content_hash?: string;
+  /** 原始发布页地址。没有它，来源就无法被第三方核验 */
+  source_url?: string;
 }
 
 export interface Case {

@@ -20,6 +20,14 @@ export const EXPERIENCE_LEVELS = Object.keys(EXPERIENCE_LABEL) as ExperienceLeve
 export interface DiagnoseArgs {
   resumePath: string;
   jdPath: string;
+  /**
+   * JD 库里的 id（与 jdPath 二选一）。
+   *
+   * 有它之后就不用每次把 JD 存成文件再喂进来 —— 更重要的是：库里那条 JD 带着
+   * 人工标注的 hard_req 与采集来源，诊断报告可以据此说明"门槛覆盖"是对着
+   * 标注算的，还是只对着模型当场抽取的结果做交叉校验。这两种口径不能混为一谈。
+   */
+  jdId: string | null;
   /** 档位 run_id（模型 × prompt）；null = 用当前 key 下的默认档位 */
   profile: string | null;
   /** JD 标题；null = 取 JD 首行 */
@@ -40,10 +48,12 @@ export interface DiagnoseArgs {
 
 export const DIAGNOSE_USAGE = `用法：
   npm run diagnose -- --resume 简历.md --jd 岗位.txt [选项]
+  npm run diagnose -- --resume 简历.md --jd-id jd-real-app-01 [选项]
 
 必填：
   --resume <path>        简历文件（.md / .txt，纯文本）
   --jd <path>            岗位 JD 文件（.md / .txt）
+  --jd-id <id>           从 JD 库直接选一条（与 --jd 二选一，用 npm run jd:coverage 查 id）
 
 常用选项：
   --dry-run              只做分段与 prompt 预检，不调用模型、不花钱
@@ -99,14 +109,22 @@ export function parseDiagnoseArgs(argv: readonly string[]): DiagnoseArgs {
 
   const resumePath = get('--resume');
   const jdPath = get('--jd');
+  const jdId = get('--jd-id');
   if (!help && !listProfiles) {
     if (resumePath === null) throw new ArgsError('缺少 --resume（简历文件路径）');
-    if (jdPath === null) throw new ArgsError('缺少 --jd（岗位 JD 文件路径）');
+    if (jdPath === null && jdId === null) {
+      throw new ArgsError('缺少 --jd（JD 文件）或 --jd-id（JD 库里的 id），二选一');
+    }
+    // 两个都传时静默选一个是最坏的处理：用户会以为自己选的是另一个
+    if (jdPath !== null && jdId !== null) {
+      throw new ArgsError('--jd 与 --jd-id 只能用一个：前者读文件，后者从 JD 库取');
+    }
   }
 
   return {
     resumePath: resumePath ?? '',
     jdPath: jdPath ?? '',
+    jdId,
     profile: get('--profile'),
     title: get('--title'),
     company: get('--company') ?? '未标注',

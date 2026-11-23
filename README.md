@@ -38,6 +38,7 @@ LLM 输出没有标准答案，24 组样本里的「2.31 → 2.34」大概率只
 
 - [快速开始](#快速开始)
 - [诊断你自己的一份简历](#诊断你自己的一份简历单条)
+- [JD 库：评测集的输入从哪来](#jd-库评测集的输入从哪来)
 - [接入真实模型](#接入真实模型)
 - [指标体系：没有标准答案时怎么评测](#指标体系没有标准答案时怎么评测)
 - [它跑出来长什么样](#它跑出来长什么样)
@@ -78,7 +79,7 @@ npm run demo          # 端到端：造数据 → 算指标 → 判显著 → �
 ### 跑测试
 
 ```bash
-npm test          # 156 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫、简历切分与诊断参数）
+npm test          # 204 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫、简历切分与诊断参数、JD 库指纹与覆盖度）
 npm run typecheck # tsc --noEmit
 ```
 
@@ -88,10 +89,12 @@ npm run typecheck # tsc --noEmit
 
 | Job | 步骤 | 守的是什么 |
 | --- | --- | --- |
-| `test` | `tsc --noEmit` + 156 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
+| `test` | `tsc --noEmit` + 204 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
 | `pipeline` | `db:init → cases:build → demo → seed:demo` | 「fork 下来不填 key 也能跑通」是 README 的承诺，这条在守承诺本身 |
 | `pipeline` | 同一份数据重算两次，`diff` 必须为空 | 「可复现」的最小可验证形式；种子或排序一乱，两次跑出的报告就不可比 |
 | `pipeline` | `diagnose --dry-run examples/*` | 单条诊断的切分链路还能不能跑通（不调模型、不花钱） |
+| `pipeline` | `jd:coverage` | JD 库自洽：指纹与正文一致、无重复导入、真实样本都标了来源 |
+| `pipeline` | `diagnose --jd-id jd-real-platform-01 --dry-run` | 从 JD 库取岗位这条入口没断（依赖 jds.json 里那条 id 真实存在） |
 | `web` | `tsc + vite build`，并确认 `dist/index.html` 产出 | 前端类型错不该等到部署才发现 |
 
 其中**「重算两次 diff 为空」这一条，是这个仓库里最像它自己的东西**：
@@ -160,6 +163,85 @@ npm run diagnose -- --resume my-resume.md --jd examples/sample-jd.txt --runs 3  
 
 纯文本简历怎么整理才好切：**一段一行**，小节名用 `## 教育背景` / `## 项目经历` 这类能识别的词。
 双栏排版导出的 txt 会把两栏串成一行，锚点会指错段 —— 这种情况先手工整理一遍，工具的 `--dry-run` 就是给这一步用的。
+
+---
+
+## JD 库：评测集的输入从哪来
+
+评测平台最容易被攻击的一点不是指标算错，而是**样本是编的**：
+
+> "你的 24 组 case 都是合成数据，结论有什么意义？"
+
+一开始 JD 库只有 12 条 `source: synthetic`——按岗位画像手写，措辞刻意写得更规整（为了评测集可控）。这在早期是对的，但它有个副作用：**合成 JD 的硬门槛太干净，门槛命中率天然偏乐观**。
+
+所以补了 JD 库和导入入口。
+
+### 两个命令
+
+```bash
+# 导入一条真实岗位
+npm run jd:add -- --file 岗位.txt --title "大模型评测研发工程师" \
+  --category platform --level senior --company-type "大厂" \
+  --source real --provenance manual-paste --url https://example.com/job/1 \
+  --hard-req "本科及以上,3年以上平台研发经验,Python,Linux"
+
+# 看覆盖矩阵、缺口与数据质量
+npm run jd:coverage
+```
+
+`--source real` 时 `--provenance` 与 `--url` 是**必填**的。少了它们，"真实"就只是一句无法核验的自我声明。
+
+导入时会算 `content_hash`（`raw` 的 sha256 前 12 位，基于规范化后的文本）：同一份 JD 换个换行方式复制两次，指纹相同，会被判为重复而不是两条。重复条目会让覆盖度统计虚高。
+
+### 现在的实际数字
+
+| | 合成 | 真实 |
+| --- | --- | --- |
+| 条数 | 12 | 11 |
+| 原文平均字数 | 188.9 | **673.9（3.57×）** |
+| 硬门槛平均条数 | 5.3 | 6.0 |
+| 覆盖矩阵 | 3 类 × 3 档 | 补上了原缺口 `business/senior` |
+
+原文长度差 3.57 倍不是"真实 JD 更详细"这么简单。多出来的部分是：福利条款、公司介绍、软性套话、以及**与岗位名不符的要求**。
+
+两个真实例子，合成数据不会出现：
+
+- **标题与要求脱节**：某条岗位叫「前端开发工程师（AI 应用）」，任职要求里却一个前端技术都没提，全是 Python / PyTorch / LangChain。合成 JD 是按岗位画像反推的，不会犯这种错。
+- **劝退条款**：真实 JD 会写「乙方公司有驻点、外派要求，如有顾虑请谨慎投递」「长期驻场，介意勿投」。
+
+### 为什么不写爬虫
+
+我明确没有做自动抓取。这不是技术上做不到，而是三件事同时发生：
+
+1. **页面内容被插了反爬水印。** 真实抓下来的正文长这样：
+
+   ```
+   职BOSS直聘位描述          → 职位描述
+   计boss算机/软件工程相关专业  → 计算机/软件工程相关专业
+   前端开来自BOSS直聘发        → 前端开发
+   ```
+
+   这些字符插在词中间，会打断 `TypeScript`、`Docker` 这类硬门槛词的匹配。自动抽取必须先做水印清洗，而清洗规则随平台改版随时失效。
+
+2. **合规风险与项目主线无关。** 反爬对抗是另一个工程领域，跟"评测做得对不对"没有关系，写进简历只会招来"你怎么处理用户协议"的反问。
+
+3. **会破坏刚建立的可复现前提。** 爬一次就是一份新数据，而 `data/cases/` 的立身之本是"同一版本、换台机器、结论一致"。
+
+所以入口刻意是**半自动**的：人负责获取和判断（这份 JD 是不是真的、字段归类对不对），工具负责校验、去重、算指纹、保证格式一致。这也正是数据标注该有的分工。
+
+`data/jd/incoming/` 里留着导入用的源文件，每条都在 `jds.json` 里有 `source_url` 指向原始发布页，可以逐条核验。
+
+### 它和评测集的关系
+
+真实 JD 默认**不进入**固定评测集。要纳进来必须显式开关：
+
+```bash
+npm run cases:build -- --include-real   # 版本号会变成 ds-v1-real-seed<seed>
+```
+
+原因在「设计取舍」里也写过：`data/cases/` 是 24 组固定 case，历史 run 的结论能互相比较，全靠这个固定性。真实 JD 会过期、会新增，混进来就等于让评测集随时间漂移。开关开着时版本号会自动变，避免"同一个版本号对应两份不同内容"。
+
+实测：开启后 23 条 JD 的池子里抽 24 组，其中 **8/24 组用到了真实 JD**。
 
 ---
 
@@ -337,6 +419,12 @@ npm run db:init        # 建库
 npm run cases:build    # 生成 24 组评测集（固定种子）
 npm run demo           # 离线端到端演示（零成本）
 npm run diagnose -- --resume 简历.md --jd 岗位.txt   # 单条诊断（你的真实简历）
+npm run diagnose -- --resume 简历.md --jd-id jd-real-platform-01   # 从 JD 库按 id 选岗位
+
+# JD 库
+npm run jd:add -- --file 岗位.txt --title "岗位名" --category app --level senior \
+  --source real --provenance manual-paste --url https://... --hard-req "本科,TypeScript"
+npm run jd:coverage    # 覆盖矩阵 + 缺口 + 数据质量（--json 可机读）
 
 # 真实模型
 npm run eval:dry       # 只打印 prompt
@@ -392,9 +480,11 @@ offerlens/
 │   │   └── server.ts          # 零依赖 node:http API + 静态托管 web/dist
 │   ├── eval/runner.ts         # runEval()：评测核心，CLI 与 Web 共用同一份
 │   ├── diagnose/              # 单条诊断：args（参数校验） / report（终端 + Markdown 渲染）
+│   ├── jd/                    # JD 库：store（规范化/指纹/去重） / coverage（覆盖度） / add-args
 │   └── lib/                   # prng（可复现）/ jsonl / budget / env / resume-text（简历切分）
 ├── data/
-│   ├── jd/jds.json            # 12 个 JD（4 类岗位 × 3 级）
+│   ├── jd/jds.json            # JD 库：12 条合成 + 11 条真实（4 类岗位 × 3 档）
+│   ├── jd/incoming/           # 真实 JD 的导入源文件（逐条对应 jds.json 里的 source_url）
 │   ├── resumes/resumes.json   # 4 份合成简历（丰富/单薄/转行/残缺）
 │   ├── cases/                 # 24 组评测集（脚本生成）
 │   └── demo/                  # 合成演示数据（无 key 时控制台的回退来源，随仓库分发）
@@ -406,10 +496,12 @@ offerlens/
 │   ├── build-cases.ts         # 固定种子分层抽样 → 24 组
 │   ├── demo.ts                # 离线端到端
 │   ├── diagnose.ts            # 单条诊断 CLI（真实简历 × 真实 JD）
+│   ├── jd-add.ts              # 导入一条真实 JD（校验 / 去重 / 算指纹）
+│   ├── jd-coverage.ts         # 覆盖矩阵 + 缺口 + 数据质量
 │   ├── seed-demo-runs.ts      # 生成合成演示数据
 │   └── run-eval.ts            # 评测 CLI（薄封装，核心在 src/eval/runner.ts）
 ├── examples/                  # 可直接跑的样例简历与 JD
-├── tests/                     # 156 个单测
+├── tests/                     # 204 个单测
 └── reports/                   # 生成的对比报告
 ```
 

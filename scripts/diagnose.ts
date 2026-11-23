@@ -22,6 +22,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { OfferAgent } from '../src/agent/offerAgent.js';
+import { loadJds } from '../src/jd/store.js';
 import {
   baselineRunId,
   defaultProfiles,
@@ -152,7 +153,17 @@ async function main(): Promise<void> {
 
   /* ---------- 输入 ---------- */
   const resumeRaw = readInput(args.resumePath, '简历');
-  const jdRaw = readInput(args.jdPath, 'JD');
+
+  // JD 两种来源：库里按 id 取（带人工标注），或从文件读（现贴现用）。
+  // 库里的那条不是"更方便"，而是"多一份可核验的标注"：source / provenance /
+  // collected_at / hard_req 都在，报告才能说清门槛是对着什么算的。
+  const libraryJd = args.jdId === null ? null : loadJds().find((x) => x.id === args.jdId);
+  if (args.jdId !== null && !libraryJd) {
+    throw new Error(
+      `JD 库里没有「${args.jdId}」\n  现有 id 用 npm run jd:coverage -- --json 查询`,
+    );
+  }
+  const jdRaw = libraryJd ? libraryJd.raw : readInput(args.jdPath, 'JD');
 
   const seg = segmentResume(resumeRaw);
   // 两个时间戳：`nowIso` 给 Date 解析用，`now` 给文件名用（带冒号的字符串在 Windows 上是非法文件名）
@@ -173,17 +184,21 @@ async function main(): Promise<void> {
   };
 
   const jd: Jd = {
-    id: `live-jd-${now}`,
-    title: args.title ?? guessTitle(jdRaw, args.jdPath),
-    company_type: args.company,
-    category: args.category,
-    level: args.level,
+    id: libraryJd ? libraryJd.id : `live-jd-${now}`,
+    title: args.title ?? libraryJd?.title ?? guessTitle(jdRaw, args.jdPath),
+    company_type: libraryJd?.company_type ?? args.company,
+    category: libraryJd?.category ?? args.category,
+    level: libraryJd?.level ?? args.level,
     raw: jdRaw,
-    // 刻意留空：真实 JD 没有人工标注。门槛由 Agent 第 1 步当场抽取，
-    // 于是"门槛覆盖率"在这里只能做交叉校验，不能和评测集里的数字相加比较。
-    hard_req: [],
-    soft_req: [],
+    // 库里那条带着人工标注的硬门槛；从文件读的刻意留空——真实 JD 没有标注，
+    // 门槛由 Agent 第 1 步当场抽取，于是"门槛覆盖率"只能做交叉校验，
+    // 不能和评测集里的数字相加比较。
+    hard_req: libraryJd?.hard_req ?? [],
+    soft_req: libraryJd?.soft_req ?? [],
     source: 'real',
+    ...(libraryJd?.provenance ? { provenance: libraryJd.provenance } : {}),
+    ...(libraryJd?.collected_at ? { collected_at: libraryJd.collected_at } : {}),
+    ...(libraryJd?.source_url ? { source_url: libraryJd.source_url } : {}),
   };
 
   const c: Case = {
@@ -191,7 +206,10 @@ async function main(): Promise<void> {
     dataset_version: 'live',
     resume_id: resume.id,
     jd_id: jd.id,
-    tags: { category: args.category, experience_level: args.experience, level: args.level },
+    // 用 jd 的归类而不是 args 的：从库里取 JD 时，args 的默认值是 app/junior，
+    // 拿它当 tags 会让一条 platform/senior 的 JD 被切成 app/junior，
+    // 而错切的标签在报表里看起来完全正常。
+    tags: { category: jd.category, experience_level: args.experience, level: jd.level },
     is_hard_negative: false,
     is_golden: false,
   };
@@ -199,6 +217,18 @@ async function main(): Promise<void> {
   /* ---------- dry-run：只做切分与预检 ---------- */
   if (args.dryRun) {
     const prompt = renderResume(resume);
+    // 先说是哪条 JD：从库里按 id 取时，最容易犯的错就是 id 复制错一位，
+    // 然后拿另一条 JD 的结果当结论。把标题、归类、来源摆出来，一眼能对。
+    console.log(`\n=== 目标岗位（${jd.raw.length} 字）===`);
+    console.log(`  ${jd.title}`);
+    console.log(`  ${JOB_CATEGORY_LABEL[jd.category]} · ${LEVEL_LABEL[jd.level]} · ${jd.company_type}`);
+    console.log(
+      `  来源 ${jd.source}` +
+        (jd.provenance ? ` (${jd.provenance})` : '') +
+        (jd.collected_at ? ` 采集于 ${jd.collected_at}` : '') +
+        (jd.hard_req.length > 0 ? ` · 库内标注硬门槛 ${jd.hard_req.length} 条` : ''),
+    );
+    if (jd.source_url) console.log(`  ${jd.source_url}`);
     console.log(`\n=== 分段结果（${seg.segments.length} 段）===`);
     for (const s of seg.segments) console.log(`  ${s.seg_id}  ${s.text}`);
     if (seg.skills.length > 0) console.log(`\n识别到的技能：${seg.skills.join('、')}`);
@@ -313,7 +343,7 @@ async function main(): Promise<void> {
   const report: DiagnoseReport = {
     generatedAt: nowIso,
     resumePath: resolve(args.resumePath),
-    jdPath: resolve(args.jdPath),
+    jdPath: libraryJd ? `jd://${libraryJd.id}` : resolve(args.jdPath),
     jdTitle: jd.title,
     categoryLabel: JOB_CATEGORY_LABEL[jd.category],
     levelLabel: LEVEL_LABEL[jd.level],

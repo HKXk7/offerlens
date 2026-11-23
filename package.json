@@ -12,6 +12,8 @@
     "cases:build": "tsx scripts/build-cases.ts",
     "demo": "tsx scripts/demo.ts",
     "diagnose": "tsx scripts/diagnose.ts",
+    "jd:add": "tsx scripts/jd-add.ts",
+    "jd:coverage": "tsx scripts/jd-coverage.ts",
     "eval:dry": "tsx scripts/run-eval.ts --dry-run",
     "eval": "tsx scripts/run-eval.ts",
     "eval:smoke": "tsx scripts/run-eval.ts --limit 4 --runs 1",

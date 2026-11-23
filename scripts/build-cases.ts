@@ -10,9 +10,15 @@
  *     4 组 hard negative（明显不匹配的组，看模型会不会硬夸）
  *
  * 用法：
- *   npx tsx scripts/build-cases.ts                # 只产出 cases.jsonl
+ *   npx tsx scripts/build-cases.ts                # 只产出 cases.jsonl（仅用合成 JD）
  *   npx tsx scripts/build-cases.ts --seed 20261004
  *   npx tsx scripts/build-cases.ts --db           # 同时写入 SQLite
+ *   npx tsx scripts/build-cases.ts --include-real # 把真实 JD 也纳入抽样池
+ *
+ * 为什么真实 JD 默认不进池：`data/cases/` 是 24 组**固定**评测集，
+ * "换台机器能复现同一批 case"与"历史 run 的结论还能比"都建立在这个固定性上。
+ * 真实 JD 会过期、会新增，混进来就等于让评测集随时间漂移。
+ * 所以它必须是一个**显式开关**，并且用不同的 dataset version 标明内容不同。
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -232,10 +238,22 @@ function argValue(name: string): string | undefined {
 
 function main(): void {
   const seed = Number(argValue('seed') ?? 20261004);
-  const jds = loadJsonCollection<Jd>(resolve(ROOT, 'data/jd'));
+  const includeReal = process.argv.includes('--include-real');
+  const allJds = loadJsonCollection<Jd>(resolve(ROOT, 'data/jd'));
+  // 默认只取合成 JD。真实 JD 单独成池，不混进固定评测集。
+  const jds = includeReal ? allJds : allJds.filter((j) => j.source === 'synthetic');
   const resumes = loadJsonCollection<Resume>(resolve(ROOT, 'data/resumes'));
 
-  const built = buildCases(resumes, jds, { seed });
+  if (jds.length === 0) {
+    throw new Error('JD 池为空：先跑 npm run db:init 或检查 data/jd/jds.json');
+  }
+
+  // 版本号必须区分内容：同一版本号下混入真实 JD，等于让"版本"不再代表"内容"，
+  // 历史报告就无从对比了。
+  const built = buildCases(resumes, jds, {
+    seed,
+    version: includeReal ? `ds-v1-real-seed${seed}` : undefined,
+  });
 
   // 同版本重建时保留首次创建时间。
   // 否则每跑一次 cases:build，data/cases/dataset.json 就脏一次（只差一个时间戳），
@@ -263,6 +281,12 @@ function main(): void {
   console.log(`   版本    : ${dataset.version}`);
   console.log(`   种子    : ${dataset.seed}（换种子会得到不同的一批 case，但同一版本内必须可复现）`);
   console.log(`   规模    : ${jds.length} JD × ${resumes.length} 简历 → ${cases.length} 组 case`);
+  const realUsed = cases.filter((c) => jds.find((j) => j.id === c.jd_id)?.source === 'real').length;
+  console.log(
+    `   JD 池   : 合成 ${jds.filter((j) => j.source === 'synthetic').length}` +
+      ` · 真实 ${jds.filter((j) => j.source === 'real').length}` +
+      (includeReal ? `　（本批 ${realUsed}/${cases.length} 组用到了真实 JD）` : '　（真实 JD 未入池，加 --include-real 开启）'),
+  );
   console.log(`   golden  : ${cases.filter((c) => c.is_golden).length} 组`);
   console.log(`   难例    : ${cases.filter((c) => c.is_hard_negative).length} 组`);
 
