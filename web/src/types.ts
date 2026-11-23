@@ -241,3 +241,56 @@ export interface EvalStatusResponse {
 export interface EvalJobsResponse {
   jobs: EvalJob[];
 }
+
+/* ---------- JD 库（GET /api/jds） ---------- */
+// 与 src/server/jdView.ts 一一对应。前端刻意不 import 后端的 schema：
+// 这是浏览器产物，不该把整个后端类型图打进来。
+
+export type JdLevelKey = 'intern' | 'junior' | 'senior';
+
+export interface JdSourceStats {
+  count: number;
+  avgRawLength: number;
+  avgHardReq: number;
+  avgSoftReq: number;
+  hardReqEmpty: number;
+  missingHash: number;
+  missingProvenance: number;
+}
+
+export interface JdCoverage {
+  total: number;
+  matrix: Record<string, Record<JdLevelKey, number>>;
+  gaps: Array<{ category: string; level: JdLevelKey }>;
+  duplicates: Array<{ hash: string; ids: string[] }>;
+  bySource: { synthetic: JdSourceStats; real: JdSourceStats };
+}
+
+export interface JdListItem {
+  id: string;
+  title: string;
+  company_type: string;
+  category: string;
+  level: JdLevelKey;
+  source: 'synthetic' | 'real';
+  provenance: string | null;
+  collected_at: string | null;
+  source_url: string | null;
+  raw_length: number;
+  hard_req: string[];
+  soft_req: string[];
+  excerpt: string;
+  content_hash: string | null;
+}
+
+export interface JdView {
+  total: number;
+  coverage: JdCoverage;
+  items: JdListItem[];
+  labels: {
+    categories: Record<string, string>;
+    levels: Record<JdLevelKey, string>;
+    categoryOrder: string[];
+    levelOrder: JdLevelKey[];
+  };
+}

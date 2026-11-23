@@ -8,6 +8,7 @@
  *   GET /api/health          存活探针
  *   GET /api/meta            档位列表 + 裁判信息 + 评测集规模
  *   GET /api/leaderboard     榜单（每个档位的聚合指标）
+ *   GET /api/jds             JD 库：覆盖矩阵 + 数据质量 + 逐条来源（样本够不够）
  *   GET /api/compare?base=&cand=   对比矩阵 + 切片下钻
  *   GET /api/cases           评测集所有 case（供详情页选择）
  *   GET /api/case?run_id=&case_id= case 详情 + trace 瀑布图数据
@@ -25,6 +26,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyze, caseDetail, compare, listCases } from './analyze.js';
+import { buildJdView } from './jdView.js';
+import { loadJds } from '../jd/store.js';
 import { currentJob, jobHistory, startEval, subscribeEval } from './evalJobs.js';
 import type { EvalOptions } from '../eval/runner.js';
 
@@ -322,6 +325,17 @@ const server = createServer(async (req, res) => {
         // 无 .env 时为只读演示（线上部署）：真实跑批被禁用，仅 dry-run 可跑
         readonly: !existsSync(resolve(ROOT, '.env')),
       });
+      return;
+    }
+
+    if (path === '/api/jds') {
+      // JD 库是评测集的输入侧：样本够不够、真实样本占多少，决定了所有结论的适用范围。
+      // 读失败不能 500 装死 —— 页面会白屏，读者以为是站点挂了。
+      try {
+        sendJson(res, 200, buildJdView(loadJds()));
+      } catch (e) {
+        sendJsonError(res, 500, `JD 库读取失败：${e instanceof Error ? e.message : String(e)}`);
+      }
       return;
     }
 

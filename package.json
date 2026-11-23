@@ -21,6 +21,7 @@
     "seed:demo": "tsx scripts/seed-demo-runs.ts",
     "serve": "tsx src/server/server.ts",
     "start": "tsx src/server/server.ts",
+    "check:jds": "node scripts/check-jd-endpoint.mjs",
     "web:dev": "npm --prefix web run dev",
     "web:build": "npm --prefix web run build",
     "test": "vitest run",

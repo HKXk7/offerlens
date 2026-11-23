@@ -79,7 +79,7 @@ npm run demo          # 端到端：造数据 → 算指标 → 判显著 → �
 ### 跑测试
 
 ```bash
-npm test          # 204 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫、简历切分与诊断参数、JD 库指纹与覆盖度）
+npm test          # 213 个单测（统计手算值、指标口径、抽样确定性、接入层断链检测、运行器前置校验、落库外键顺序、入口守卫、简历切分与诊断参数、JD 库指纹与覆盖度、JD 视图层不合并统计）
 npm run typecheck # tsc --noEmit
 ```
 
@@ -89,7 +89,7 @@ npm run typecheck # tsc --noEmit
 
 | Job | 步骤 | 守的是什么 |
 | --- | --- | --- |
-| `test` | `tsc --noEmit` + 204 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
+| `test` | `tsc --noEmit` + 213 个单测 | 指标口径改一个符号，结论就会系统性偏，必须有回归保护 |
 | `pipeline` | `db:init → cases:build → demo → seed:demo` | 「fork 下来不填 key 也能跑通」是 README 的承诺，这条在守承诺本身 |
 | `pipeline` | 同一份数据重算两次，`diff` 必须为空 | 「可复现」的最小可验证形式；种子或排序一乱，两次跑出的报告就不可比 |
 | `pipeline` | `diagnose --dry-run examples/*` | 单条诊断的切分链路还能不能跑通（不调模型、不花钱） |
@@ -391,7 +391,7 @@ npm run serve        # 后端（8787）
 npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api → 8787）
 ```
 
-### 四个视图 + 一个入口
+### 五个视图 + 一个入口
 
 | 视图 | 回答什么 | 关键点 |
 | --- | --- | --- |
@@ -399,7 +399,12 @@ npm run web:dev      # 前端 Vite 开发服务器（5173，自动代理 /api �
 | **对比矩阵** | 这次改动到底有没有变好 | 每个格子带「显著更好 / 显著更差 / 不显著」角标 + McNemar p 值或 95% CI |
 | **切片下钻** | 哪个子集偷偷退化了 | 能力类指标全保留，资源类（成本/延迟）折叠 |
 | **Case 详情** | 单条 case 模型读到了什么、产出了什么 | 脱敏简历 + JD 硬门槛 + 三次重复建议 + trace 瀑布图 |
+| **JD 库** | 我的样本够不够、来自哪里 | 覆盖矩阵（0 条的格子标红，区分「0 分」与「没测过」）+ 合成/真实分开统计 + 逐条来源可回溯 |
 | **运行评测** | 在 Web 端触发一次真实评测 | 选档位/规模/预算 → 后台跑批 → 实时进度 + 日志 → 完成自动刷新榜单 |
+
+「JD 库」是唯一不以跑分为主的视图，存在的理由很直接：**榜单上每个数字的适用范围都由样本决定**。
+`business/senior` 一格 0 条却和 `app/junior` 并列展示时，读者会以为「各档位都有结论」——
+实际上那一档什么都没测过。所以缺口必须标红，合成与真实必须分两行统计。
 
 「运行评测」把原来的 CLI 跑批搬进了 Web：`POST /api/eval` 启动后台 job，前端用 SSE
 （`/api/eval/stream`）实时接收进度与日志（SSE 不可用时自动降级轮询），完成即失效分析缓存、
@@ -477,6 +482,7 @@ offerlens/
 │   ├── server/                # Web 控制台后端
 │   │   ├── analyze.ts         # 聚合层：读 data/real，复用 metrics/stats 算榜单与对比
 │   │   ├── evalJobs.ts        # 评测 job 管理：后台跑批 + 进度/日志 + 前置检查（key/档位）
+│   │   ├── jdView.ts          # /api/jds 视图层（纯函数：裁剪 + 排序，不做任何统计合并）
 │   │   └── server.ts          # 零依赖 node:http API + 静态托管 web/dist
 │   ├── eval/runner.ts         # runEval()：评测核心，CLI 与 Web 共用同一份
 │   ├── diagnose/              # 单条诊断：args（参数校验） / report（终端 + Markdown 渲染）
@@ -490,7 +496,7 @@ offerlens/
 │   └── demo/                  # 合成演示数据（无 key 时控制台的回退来源，随仓库分发）
 │       └── traces/            #   预生成的 trace，供 case 详情瀑布图直接可用
 ├── web/                       # 前端：React 18 + Vite + TanStack Table（独立 npm 工程）
-│   └── src/                   #   App / Leaderboard / CompareView / CaseDetail / RunEval
+│   └── src/                   #   App / Leaderboard / CompareView / CaseDetail / JdLibrary / RunEval
 ├── scripts/
 │   ├── init-db.ts
 │   ├── build-cases.ts         # 固定种子分层抽样 → 24 组
@@ -501,7 +507,7 @@ offerlens/
 │   ├── seed-demo-runs.ts      # 生成合成演示数据
 │   └── run-eval.ts            # 评测 CLI（薄封装，核心在 src/eval/runner.ts）
 ├── examples/                  # 可直接跑的样例简历与 JD
-├── tests/                     # 204 个单测
+├── tests/                     # 213 个单测
 └── reports/                   # 生成的对比报告
 ```
 

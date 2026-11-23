@@ -5,6 +5,7 @@ import type {
   EvalJob,
   EvalJobsResponse,
   EvalStatusResponse,
+  JdView,
   LeaderboardResponse,
   MetaResponse,
   StartEvalRequest,
@@ -52,6 +53,7 @@ export const api = {
       `/api/compare?base=${encodeURIComponent(base)}&cand=${encodeURIComponent(cand)}`,
     ),
   cases: () => getJson<CasesResponse>('/api/cases'),
+  jds: () => getJson<JdView>('/api/jds'),
   caseDetail: (runId: string, caseId: string) =>
     getJson<CaseDetailResult>(
       `/api/case?run_id=${encodeURIComponent(runId)}&case_id=${encodeURIComponent(caseId)}`,

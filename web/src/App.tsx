@@ -5,9 +5,10 @@ import { Leaderboard } from './components/Leaderboard';
 import { CompareView } from './components/CompareView';
 import { CaseDetail } from './components/CaseDetail';
 import { RunEval } from './components/RunEval';
+import { JdLibrary } from './components/JdLibrary';
 import { Tag } from './components/Badge';
 
-type Tab = 'leaderboard' | 'compare' | 'case' | 'eval';
+type Tab = 'leaderboard' | 'compare' | 'case' | 'jds' | 'eval';
 
 export default function App() {
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -56,6 +57,9 @@ export default function App() {
         </button>
         <button className={tab === 'case' ? 'tab active' : 'tab'} onClick={() => setTab('case')}>
           Case 详情
+        </button>
+        <button className={tab === 'jds' ? 'tab active' : 'tab'} onClick={() => setTab('jds')}>
+          JD 库
         </button>
         <button className={tab === 'eval' ? 'tab active' : 'tab'} onClick={() => setTab('eval')}>
           运行评测
@@ -124,6 +128,21 @@ export default function App() {
               </p>
             </div>
             <CaseDetail profiles={meta.profiles} />
+          </section>
+        </main>
+      )}
+
+      {!error && meta && tab === 'jds' && (
+        <main className="main">
+          <section className="section">
+            <div className="section-head">
+              <h2>JD 库 · 样本够不够、来自哪里</h2>
+              <p className="dim">
+                榜单上每个数字的适用范围都由样本决定。这里把「哪些档位其实一条都没测」和
+                「真实样本占多少」摊开—— 前者决定结论能不能说，后者决定结论能不能外推到真实投递。
+              </p>
+            </div>
+            <JdLibrary />
           </section>
         </main>
       )}

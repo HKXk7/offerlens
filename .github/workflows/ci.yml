@@ -88,6 +88,18 @@ jobs:
       - name: 生成演示数据（控制台无 key 时的回退）
         run: npm run seed:demo
 
+      # 起真服务、真发一次请求。单测只能证明「视图算得对」，
+      # 证明不了「路由挂对了、JSON 真能到浏览器」—— 后者一挂，控制台那个标签整块空白。
+      - name: JD 库接口可用（起服务后真请求一次）
+        run: |
+          npx tsx src/server/server.ts > /tmp/serve.log 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8787/api/health > /dev/null && break
+            sleep 1
+          done
+          node scripts/check-jd-endpoint.mjs http://127.0.0.1:8787 \
+            || { echo "----- 服务日志 -----"; cat /tmp/serve.log; exit 1; }
+
       # 样例跑批必须是确定性的：同一份数据重算两次，对比矩阵要一模一样。
       # 这是「可复现」这个承诺的最小可验证形式。
       - name: 幂等性检查（重算报告应完全一致）
